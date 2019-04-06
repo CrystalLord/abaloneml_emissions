@@ -1,2 +1,4 @@
 # __init__.py
-from .bigqueryextract import create_client
+from .epaclient import EpaClient
+
+__all__ = ['EpaClient']
