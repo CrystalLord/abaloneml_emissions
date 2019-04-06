@@ -3,3 +3,5 @@
 env
 **__pychache__/
 query_storage/
+*key.json
+google-auth.sh
