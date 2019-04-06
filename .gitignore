@@ -1,4 +1,5 @@
 *.swp
 *~
 env
-__pychache__
+**__pychache__/
+query_storage/

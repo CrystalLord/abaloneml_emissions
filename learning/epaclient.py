@@ -50,7 +50,7 @@ class EpaClient:
         # Google.
         self.job_config.use_query_cache = True
 
-    def query(self, sql: str, raw_sql=False, dry_run=False):
+    def query(self, sql: str, raw_sql=False, dry_run=False, save=True):
         """Runs a SQL query with the given job config on BigQuery.
 
         Args:
@@ -65,10 +65,12 @@ class EpaClient:
         else:
             query = sql
 
-        print(query)
         if dry_run:
             temp_dry_run_setting = self.job_config.dry_run
             self.job_config.dry_run = True
+
+        print("Running the following query... (dry_run={})".format(dry_run))
+        print("    > "+query)
 
         query_job = self.client.query(
             query,
@@ -79,11 +81,12 @@ class EpaClient:
         if dry_run:
             self.job_config.dry_run = temp_dry_run_setting
             return None
-        else:
-            df = query_job.to_dataframe()
+
+        df = query_job.to_dataframe()
+        if save:
             self._mkdir_ifnotexist(self.storage_dir)
             now = datetime.datetime.today()
-            df.to_csv(self.storage_dir + "_" + str(now))
+            df.to_csv(self.storage_dir + "/query_" + str(now))
         return df
 
     def get_dataset_name(self):

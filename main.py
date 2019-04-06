@@ -7,7 +7,8 @@ import learning
 def main():
     client = learning.EpaClient('query_storage')
     sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
-    df = client.query(sql, dry_run=True)
+    df = client.query(sql)
+    print(df)
     print("Successful!")
 
 
