@@ -3,19 +3,17 @@
 
 ## Installation
 
-Install all the things via:
+1. Install all the things via:
 
 `$ pip3 install -r requirements.txt`
 
-Or, if you want to do it manually,
-You need the google-cloud-bigquery package.
+2. Get the Google auth key from a teammate.
+3. Edit the `google-auth.sh` script with your auth key path.
+4. Source `google-auth.sh`.
 
-`$ pip3 install google-cloud-bigquery`
+## Running
 
-And of course scikit-learn:
+Run the program either through `$ ./main.py` if you're on Linux/MacOS, or using
+the appropriate `python3` command.
 
-`$ pip3 install scikit-learn`
 
-And finally, numpy.
-
-`$ pip3 install numpy`
