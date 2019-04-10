@@ -1,5 +1,5 @@
 # __init__.py
 from .epaclient import EpaClient
-from .epaclient import DataCleaner
+from .data import *
 
-__all__ = ['EpaClient']
+__all__ = ['EpaClient', 'DataCleaner']

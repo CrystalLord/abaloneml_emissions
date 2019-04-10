@@ -10,6 +10,8 @@ def main():
     #df = client.query(sql, dry_run=True)
     df = query_hawkins(client)
     print(df)
+    dataCleaner = learning.DataCleaner(df)
+    dataCleaner.printColumnValue()
     print("Successful!")
 
 
