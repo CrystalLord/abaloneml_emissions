@@ -6,6 +6,8 @@ import learning
 
 def main():
     client = learning.EpaClient('query_storage')
+    # sql = 'SELECT y.latitude, y.longitude FROM (SELECT latitude, longitude, count(*) AS count_tuple FROM `{}.air_quality_annual_summary` GROUP BY latitude, longitude) y WHERE y.count_tuple = 8774;'
+    # df = client.query(sql)
     #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
     #df = client.query(sql, dry_run=True)
     df = query_hawkins(client)
@@ -17,16 +19,17 @@ def main():
 
 def query_hawkins(client):
     sql = '''SELECT
-                (state_code,
+                state_code,
                 county_code,
                 site_num,
                 date_local,
                 time_local,
                 parameter_name,
-                latitude, longitude,
+                latitude, 
+                longitude,
                 sample_measurement,
                 mdl,
-                units_of_measure)
+                units_of_measure
             FROM
                 `{}.o3_hourly_summary`
             WHERE
