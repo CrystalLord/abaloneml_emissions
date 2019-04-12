@@ -31,9 +31,9 @@ def query_hawkins(client):
                 mdl,
                 units_of_measure
             FROM
-                `{}.o3_hourly_summary`
+                `{}.voc_hourly_summary`
             WHERE
-                (state_code = "06" AND
+                (state_code = "06") AND
                 county_code = "065" AND
                 site_num = "8001");
             '''
