@@ -2,6 +2,7 @@
 import argparse
 
 import learning
+import plotting
 
 
 def main():
@@ -12,8 +13,9 @@ def main():
     #df = client.query(sql, dry_run=True)
     df = query_hawkins(client)
     print(df)
-    dataCleaner = learning.DataCleaner(df)
+    dataCleaner = learning.DataCleaner(df, 'query_storage')
     dataCleaner.run()
+    
 
 def query_hawkins(client):
     sql = '''SELECT
@@ -31,11 +33,12 @@ def query_hawkins(client):
             FROM
                 `{}.voc_hourly_summary`
             WHERE
-                (state_code = "06")
+                (state_code = "06") --AND
+				-- county_code = "065")
+				-- site_num = "8001")
             LIMIT 10
-                ; --AND
-                -- county_code = "065" AND
-                -- site_num = "8001");
+                ;
+                
             '''
     df = client.query(sql, dry_run=False)
     return df
