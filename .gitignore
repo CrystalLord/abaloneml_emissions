@@ -1,7 +1,7 @@
 *.swp
 *~
 env
-**__pychache__/
+**__pycache__/
 query_storage/
 *key.json
 google-auth.sh
