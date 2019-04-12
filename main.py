@@ -31,9 +31,11 @@ def query_hawkins(client):
             FROM
                 `{}.voc_hourly_summary`
             WHERE
-                (state_code = "06") AND
-                county_code = "065" AND
-                site_num = "8001");
+                (state_code = "06")
+            LIMIT 10
+                ; --AND
+                -- county_code = "065" AND
+                -- site_num = "8001");
             '''
     df = client.query(sql, dry_run=False)
     return df
