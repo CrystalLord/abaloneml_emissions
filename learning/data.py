@@ -2,6 +2,7 @@ from google.cloud import bigquery
 import os
 import pandas as pd
 import datetime
+import numpy as np
 
 
 class DataCleaner:
@@ -14,14 +15,29 @@ class DataCleaner:
         """
         self.df = df
 
+    def run(self):
+        self.dropColumns()
+        self.printColumnValue()
+        npArray = self.toNumpyArray()
+        print(npArray)
+        self.sanityCheck(npArray)
+        print("Successful!")
+
     def toNumpyArray(self):
-        return 
+        return self.df.to_numpy()
 
     def printColumnValue(self):
         print(self.df.columns.tolist())
 
-    def updateColumn(self, column):
-        return 
+    def dropColumns(self):
+        #'state_code', 'county_code', 'site_num', 'date_local', 'time_local', 
+        #'parameter_name', 'latitude', 'longitude', 'sample_measurement', 'mdl', 
+        #'units_of_measure']
+        self.df = self.df.drop(['state_code', 'county_code', 'site_num', 'latitude', 'longitude', 'mdl'], axis = 1)
+
+    def sanityCheck(self, arrayCheck):
+        print(np.unique(arrayCheck[:,2]))
+        print(np.unique(arrayCheck[:,4]))
 
 """
 time stamp
