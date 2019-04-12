@@ -13,9 +13,7 @@ def main():
     df = query_hawkins(client)
     print(df)
     dataCleaner = learning.DataCleaner(df)
-    dataCleaner.printColumnValue()
-    print("Successful!")
-
+    dataCleaner.run()
 
 def query_hawkins(client):
     sql = '''SELECT
