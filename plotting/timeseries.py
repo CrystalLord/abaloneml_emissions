@@ -80,12 +80,13 @@ def main():
         valList = []
         for samp in df_array:
             if samp[param_ind] == param:
-                time = datetime.datetime.combine(samp[date_ind], datetime.datetime.strptime(samp[time_ind], '%H:%M').time())
-                timeList.append(time)
-                valList.append(samp[samp_ind])   
+                if samp[date_ind].month > 5 and samp[date_ind].month < 9:
+                    time = datetime.datetime.combine(samp[date_ind], datetime.datetime.strptime(samp[time_ind], '%H:%M').time())
+                    timeList.append(time)
+                    valList.append(samp[samp_ind])   
         print(timeList)
         print(valList)
-        timeseries(timeList, valList, title=param + " levels vs. time")
+        timeseries(timeList, valList, title=param + " levels vs. time", )
 
 
 if __name__ == "__main__":
