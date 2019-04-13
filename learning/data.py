@@ -7,13 +7,14 @@ import numpy as np
 
 class DataCleaner:
 
-    def __init__(self, df):
+    def __init__(self, df, storage_dir):
         """Create a DataCleaner Object.
 
         Args:
             df: Data frame with all of the data
         """
         self.df = df
+        self.storage_dir = storage_dir
 
     def run(self):
         self.dropColumns()
@@ -23,6 +24,7 @@ class DataCleaner:
         npArray = self.toNumpyArray()
         print(npArray)
         self.sanityCheck(npArray)
+        np.save(self.storage_dir + "/query_" + str(datetime.datetime.today()), npArray)
         print("Successful!")
 
     def toNumpyArray(self):
