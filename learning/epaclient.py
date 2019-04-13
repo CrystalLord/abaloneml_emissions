@@ -77,7 +77,7 @@ class EpaClient:
             location=self.location,
             job_config=self.job_config
         )  # This line begins the query. This is an API call if wet.
-
+        
         if dry_run:
             self.job_config.dry_run = temp_dry_run_setting
             return None
