@@ -86,7 +86,7 @@ def main():
                     valList.append(samp[samp_ind])   
         print(timeList)
         print(valList)
-        timeseries(timeList, valList, title=param + " levels vs. time", )
+        timeseries(timeList, valList, title=param + " levels vs. time")
 
 
 if __name__ == "__main__":
