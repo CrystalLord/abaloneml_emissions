@@ -86,9 +86,9 @@ def main():
                     time = datetime.datetime.combine(samp[date_ind], datetime.datetime.strptime(samp[time_ind], '%H:%M').time())
                     timeList.append(time)
                     valList.append(samp[samp_ind])   
-        print(timeList)
-        print(valList)
-        timeseries(timeList, valList, title=param + " levels vs. time")
+        # print(timeList)
+        # print(valList)
+        timeseries(timeList, valList, title=param + " levels vs. time", plttype='stem')
 
 
 if __name__ == "__main__":
