@@ -15,7 +15,7 @@ def main():
     print(df)
     dataCleaner = learning.DataCleaner(df, 'query_storage')
     dataCleaner.run()
-    
+
 
 def query_hawkins(client):
     sql = '''SELECT
@@ -31,12 +31,12 @@ def query_hawkins(client):
                 mdl,
                 units_of_measure
             FROM
-                `{}.voc_hourly_summary`
+                `{}.nonoxnoy_hourly_summary`
             WHERE
-                (state_code = "06") --AND
-				-- county_code = "065")
+                (state_code = "06" AND
+				county_code = "073")
 				-- site_num = "8001")
-            LIMIT 10
+            -- LIMIT 10
                 ;
                 
             '''
