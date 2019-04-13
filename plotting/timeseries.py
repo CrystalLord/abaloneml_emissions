@@ -67,7 +67,9 @@ def main():
     args = vars(parser.parse_args())
 
     arr = args["np_array"]
+    print(arr)
     df_array = np.load(arr)
+    print("loaded array")
 # NOTE: columns will be named based on the query, so there will be things like:
 # VOC_parameter_name, ozone_parameter_name, etc.
     date_ind = 0 #np.where(df_array[0] =='date_local')
@@ -80,7 +82,7 @@ def main():
         valList = []
         for samp in df_array:
             if samp[param_ind] == param:
-                if samp[date_ind].month > 5 and samp[date_ind].month < 9:
+                if samp[date_ind].month > 5 and samp[date_ind].month < 9 and samp[date_ind].year == 2016:
                     time = datetime.datetime.combine(samp[date_ind], datetime.datetime.strptime(samp[time_ind], '%H:%M').time())
                     timeList.append(time)
                     valList.append(samp[samp_ind])   

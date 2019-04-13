@@ -9,28 +9,26 @@ def main():
     client = learning.EpaClient('query_storage')
     # sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
     # df = client.query(sql, dry_run=False)
-    df = query_san_diego(client)
+    df = query_san_diego_temperature(client)
     print(df)
-    # dataCleaner = learning.DataCleaner(df, 'query_storage')
-    # dataCleaner.run()
+    dataCleaner = learning.DataCleaner(df, 'query_storage')
+    dataCleaner.run()
     
-def query_san_diego(client):
+def query_san_diego_temperature(client):
     sql = '''SELECT 
-                state_code,
-                county_code,
-                site_num,
-                count(*) tuple
+                date_local,
+                time_local,
+                parameter_name,
+                sample_measurement,
+                units_of_measure,
+                mdl
             FROM
-                `{}.air_quality_annual_summary`
+                `{}.temperature_hourly_summary`
             WHERE
-                state_code = '06' AND county_code = '073' AND site_num = '1001'
-            GROUP BY 
-                state_code, county_code, site_num
+                state_code = '06' AND county_code = '073' 
     '''
     df = client.query(sql, dry_run=False)
     return df 
-
-
 
 def parseargs():
     pass
