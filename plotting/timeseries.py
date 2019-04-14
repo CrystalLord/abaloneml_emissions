@@ -53,11 +53,6 @@ def timeseries(x, y, title='Time Series', ylabel='Value', plttype='line',
     plt.title(title)
     plt.grid(alpha=0.1)
 
-    # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%y'))
-    # plt.gca().xaxis.set_major_locator(mdates.DayLocator())
-    # plt.plot(x,y)
-    # plt.gcf().autofmt_xdate()
-
     plt.show()
 
 def main():
@@ -68,8 +63,7 @@ def main():
 
     arr = args["np_array"]
     df_array = np.load(arr)
-# NOTE: columns will be named based on the query, so there will be things like:
-# VOC_parameter_name, ozone_parameter_name, etc.
+
     date_ind = 0 #np.where(df_array[0] =='date_local')
     time_ind = 1 #np.where(df_array[0] =='time_local')
     param_ind = 2 #np.where(df_array[0] =='parameter_name')
@@ -80,7 +74,7 @@ def main():
         valList = []
         for samp in df_array:
             if samp[param_ind] == param:
-                if samp[date_ind].month > 5 and samp[date_ind].month < 9 and samp[date_ind].year == 2016:
+                if samp[date_ind].month > 5 and samp[date_ind].month < 9 and samp[date_ind].year == 2013:
                     time = datetime.datetime.combine(samp[date_ind], datetime.datetime.strptime(samp[time_ind], '%H:%M').time())
                     timeList.append(time)
                     valList.append(samp[samp_ind])   
