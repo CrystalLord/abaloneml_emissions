@@ -19,6 +19,8 @@ class DataCleaner:
     def run(self):
         self.dropColumns()
         self.printColumnValue()
+        self.oneHot()
+        self.printColumnValue()
         npArray = self.toNumpyArray()
         print(npArray)
         self.sanityCheck(npArray)
@@ -37,8 +39,18 @@ class DataCleaner:
         #'units_of_measure']
         self.df = self.df.drop(['state_code', 'county_code', 'site_num', 'latitude', 'longitude', 'mdl'], axis = 1)
 
+    def oneHot(self):
+        # Uncomment out code to test one hot encoding
+        #row = self.df.iloc[[2]]
+        #row.ix[2, 'parameter_name'] = 'test'
+        #print(row)
+        #self.df = self.df.append(row)
+        self.df = pd.concat((self.df[['parameter_name']],
+          pd.get_dummies(self.df, columns=['parameter_name'], drop_first=True)),
+          axis=1)
+
     def sanityCheck(self, arrayCheck):
-        print(np.unique(arrayCheck[:,2]))
+        print(np.unique(arrayCheck[:,0]))
         print(np.unique(arrayCheck[:,4]))
 
 """
