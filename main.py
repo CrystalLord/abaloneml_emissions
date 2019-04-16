@@ -25,9 +25,8 @@ def main():
     if args.subparser_name == 'ml':
         cleaner = learning.DataCleaner('query_storage')
         for fp in args.filenames:
-            df = pd.read_csv(fp, index_col=0)
+            df = pd.read_csv(fp)
             cleaner.consume_frame(df)
-        print(cleaner.frames['frame_0'].head())
         return
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')

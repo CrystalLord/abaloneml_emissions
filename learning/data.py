@@ -1,7 +1,8 @@
-from google.cloud import bigquery
 import os
+
+from google.cloud import bigquery
 import pandas as pd
-import datetime
+from datetime import datetime, timedelta
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
@@ -30,7 +31,11 @@ class DataCleaner:
         # Sort by time.
         self.frames[frame_name].sort_values('timestamp', inplace=True)
         # Reset the indices after sorting, and drop the old index.
-        self.frames[frame_name] = self.frames[frame_name].reset_index(drop=True)
+        self.frames[frame_name] = self.frames[frame_name].reset_index(
+            drop=True
+        )
+        print(self.gen_day_features([frame_name],
+                                    datetime(2010, 6, 4, 12), 4, 3))
 
 #    def run(self, frame_name):
 #        self.drop_columns()
@@ -39,16 +44,13 @@ class DataCleaner:
 #        print(nparray)
 #        self.sanity_check(nparray)
 #        np.save(self.storage_dir + "/query_" +
-#                str(datetime.datetime.today()), nparray)
+#                str(datetime.today()), nparray)
 #        print("Successful!")
 
     def to_numpy_array(self, frame_name):
         return self.frames[frame_name].to_numpy()
 
-    #def print_column_value(self):
-    #    print(self.frames.columns.tolist())
-
-    def generate_npdata(self):
+    def gen_full_training_data(self, day_look_back, year_look_back):
         """Produces the training and test data together as one long numpy
         matrix
 
@@ -56,51 +58,90 @@ class DataCleaner:
             A tuple of the Numpy ndarrays where the first element is the
             training data, and the second element is the regression data.
         """
-        X = np.empty((0,0))
-        for fr in self.frames.keys():
-            col = self.frames[fr][["sampled_measurement"]]\
-                .to_numpy(dtype=np.float64)
-        return X, y
+        raise NotImplemented("Working on it!")
+
+    def gen_day_features(self, frames_of_interest, day_of_interest,
+                         day_look_back, year_look_back, hour_range=(0,24)):
+        """Generates features for a day of interest
+
+        Args:
+            day_of_interest (datetime):
+        """
+        num_frames = len(frames_of_interest)
+        num_hours = hour_range[1] - hour_range[0]
+        # Create an empty feature matrix first, then fill it up.
+        features = np.empty(
+            (1, (day_look_back*year_look_back - 1)*num_frames*num_hours)
+        )
+
+        # Keep track of which feature we are writing to with this counter.
+        counter = 0
+        for year in range(year_look_back):
+            for day in range(day_look_back):
+                if year == 0 and day == 0:
+                    continue
+                # Loop through all hours we care about.
+                for hour in range(hour_range[0], hour_range[1]):
+                    # Compute the delta time, and find the time when we want to
+                    # grab the sample.
+                    true_year = int(round((year*365.25)))
+                    delta = timedelta(days=-(day+true_year), hours=-hour)
+                    sample_time = day_of_interest + delta
+                    for frame in frames_of_interest:
+                        s = self.sample_at_time(frame, sample_time,
+                                                return_nearest=True)
+                        features[0, counter] = s
+                        # Make sure to increment the counter to write to the
+                        # next feature cell!
+                        counter += 1
+        return features
 
     def append_full_timestamp(self, frame_name):
         """Appends the full timestamp object to the dataframe"""
         df = self.frames[frame_name]
         dateseries = df['date_local']
-        hourseries = df['numeric_hour']
+        hourseries = df['time_local']
         new_series = pd.Series(np.empty(dateseries.size,))
         for i, t in dateseries.iteritems():
             oldtime = t.split("-")
             year = int(oldtime[0])
             month = int(oldtime[1])
             day = int(oldtime[2])
-            hour = int(hourseries[i])
-            new_series[i] = datetime.datetime(year,  # Year
-                                              month,  # Month
-                                              day,  # Day
-                                              hour,  # Hour
-                                              0  # Minute
-            )
+            try:
+                hour = int(hourseries[i].split(":")[0])
+                new_series[i] = datetime(year,  # Year
+                                         month,  # Month
+                                         day,  # Day
+                                         hour,  # Hour
+                                         0  # Minute
+                )
+            except:
+                print("Hour series:", hourseries[i])
+                print("i:",i)
+                exit(-1)
         self.frames[frame_name]['timestamp'] = new_series
 
-    def data_at_time(self, frame_name, year, month, day, hour):
-        """Returns a data frame containing instances of samples from each
-        stored sampled_measurement column at a particular hour
+    def data_at_time(self, frame_name, t, return_nearest=False):
+        """Returns a data frame which contains only one row which has the
+            specified year, month, day, and hour as provided.
+
+        Use DataCleaner.sample_at_time instead unless you know what you're
+        doing.
 
         Args:
-            frame_name (str):
-            year (int):
-            month (int):
-            day (int):
-            hour (int):
+            frame_name (str): Name of the frame to look at.
+            t (datetime): Datetime to calculate for.
+            return_nearest (bool, optional): Return the nearest row to the
+                provided date, if none could be found.
 
         Returns:
             Returns the full row from the dataframe which matches this date.
             If multiple rows match this time, it will select the row
-            arbitrarily.
+            arbitrarily. If no rows match, it will return None, unless
+            return_nearest is True.
         """
         df = self.frames[frame_name]
         # Get the date time object to compare with.
-        t = datetime.datetime(year, month, day, hour)
 
         # set up our binary search.
         current_index = len(df)//2
@@ -109,11 +150,14 @@ class DataCleaner:
         while True:
             comparison_time = df.loc[current_index, 'timestamp']
             if t == comparison_time:
-                print("found!")
-                break
+                return df.iloc[current_index, :]
             elif max_bound == min_bound:
-                print("Not found")
-                break
+                if return_nearest:
+                    # The max or min bound is the closest item in the dataset.
+                    return df.iloc[min_bound, :]
+                else:
+                    # Return None, indicating that nothing of value was found.
+                    return None
             else:
                 if t < comparison_time:
                     # Our time is earlier!
@@ -123,6 +167,30 @@ class DataCleaner:
                     # Our time is later!
                     min_bound = current_index + 1
                     current_index = (min_bound + max_bound)//2
+
+    def sample_at_time(self, frame_name, t,
+                       return_nearest=False):
+        """Returns the sample_measurement from the specified time. Under the
+            hood, this simply calls [[data_at_time]], and extracts the
+            sampled_measurement value.
+
+        Args:
+            frame_name (str): Name of the frame to look at.
+            t (datetime): Datetime to calculate for.
+            return_nearest (bool, optional): Return the nearest row to the
+                provided date, if none could be found.
+
+        Returns:
+            Returns the sample_measurement value which matches the given date.
+            If multiple rows match this time, it will select the row
+            arbitrarily. If no rows match, it will return None, unless
+            return_nearest is True.
+        """
+        return self.data_at_time(
+            frame_name,
+            t,
+            return_nearest
+        )['sample_measurement']
 
 
     def append_numeric_hour(self, frame_name=None):
