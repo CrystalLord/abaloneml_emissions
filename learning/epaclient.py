@@ -81,8 +81,9 @@ class EpaClient:
         if dry_run:
             self.job_config.dry_run = temp_dry_run_setting
             return None
-
+        print("Query completed. Converting to DataFrame.")
         df = query_job.to_dataframe()
+        print("Conversion complete. Saving.")
         if save:
             self._mkdir_ifnotexist(self.storage_dir)
             now = datetime.datetime.today()
