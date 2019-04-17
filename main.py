@@ -84,7 +84,7 @@ def query_hawkins(client):
                 mdl,
                 units_of_measure
             FROM
-                `{}.nonoxnoy_hourly_summary`
+                `{}.temperature_hourly_summary`
             WHERE
                 (state_code = "06" AND
 				county_code = "073")
