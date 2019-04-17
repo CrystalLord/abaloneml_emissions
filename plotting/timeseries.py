@@ -36,11 +36,11 @@ def timeseries(x, y, title='Time Series', ylabel='Value', plttype='line',
         sely = y[min_index:max_index+1]
     else:
         # Selected X & Y
-        selx = x
+        selx = mdates.date2num(x)
         sely = y
 
     if plttype == "line":
-        plt.plot(selx, sely)
+        plt.plot_date(selx, sely)
     else:
         plt.stem(selx, sely)
 
@@ -82,13 +82,13 @@ def main():
         valList = []
         for samp in df_array:
             if samp[param_ind] == param:
-                if samp[date_ind].month > 5 and samp[date_ind].month < 9 and samp[date_ind].year == 2016:
+                if samp[date_ind].year == 2007 and samp[date_ind].month == 6 and samp[date_ind].day >= 5 and samp[date_ind].day <= 10:
                     time = datetime.datetime.combine(samp[date_ind], datetime.datetime.strptime(samp[time_ind], '%H:%M').time())
                     timeList.append(time)
                     valList.append(samp[samp_ind])   
         # print(timeList)
         # print(valList)
-        timeseries(timeList, valList, title=param + " levels vs. time", plttype='stem')
+        timeseries(timeList, valList, title=param + " levels vs. time", plttype='line')
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ class DataCleaner:
         #'state_code', 'county_code', 'site_num', 'date_local', 'time_local', 
         #'parameter_name', 'latitude', 'longitude', 'sample_measurement', 'mdl', 
         #'units_of_measure']
-        self.df = self.df.drop(['state_code', 'county_code', 'site_num', 'latitude', 'longitude', 'mdl'], axis = 1)
+        self.df = self.df.drop(['mdl'], axis = 1)
 
     def sanityCheck(self, arrayCheck):
         print(np.unique(arrayCheck[:,2]))

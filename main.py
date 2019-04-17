@@ -23,7 +23,7 @@ def query_san_diego_temperature(client):
                 units_of_measure,
                 mdl
             FROM
-                `{}.temperature_hourly_summary`
+                `{}.rh_and_dp_hourly_summary`
             WHERE
                 state_code = '06' AND county_code = '073' 
     '''
