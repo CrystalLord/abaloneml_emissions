@@ -26,14 +26,17 @@ def main():
         cleaner = learning.DataCleaner('query_storage')
         for fp in args.filenames:
             df = pd.read_csv(fp)
-            cleaner.consume_frame(df)
+            if "daily" in fp:
+                cleaner.consume_frame(df, "daily")
+            if "hourly" in fp:
+                cleaner.consume_frame(df, "hourly")
         return
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')
         #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
         df = query_hawkins(client)
         print(df)
-        #dataCleaner = learning.DataCleaner(df, 'query_storage')
+        # dataCleaner = learning.DataCleaner(df, 'query_storage')
         #dataCleaner.run()
 
         #arr = dataCleaner.toNumpyArray()
@@ -76,15 +79,15 @@ def query_hawkins(client):
                 county_code,
                 site_num,
                 date_local,
-                time_local,
                 parameter_name,
                 latitude,
                 longitude,
-                sample_measurement,
-                units_of_measure,
-                mdl
+                arithmetic_mean,
+                first_max_value,
+                first_max_hour,
+                units_of_measure
             FROM
-                `{}.rh_and_dp_hourly_summary`
+                `{}.no2_daily_summary`
             WHERE
                 state_code = '06' AND county_code = '073' 
             '''

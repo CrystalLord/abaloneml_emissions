@@ -17,25 +17,41 @@ class DataCleaner:
         self.storage_dir = storage_dir
         self.frames = {}
 
-    def consume_frame(self, df, frame_name=None):
-        if frame_name is None:
-            num_frames = len(self.frames.keys())
-            frame_name = "frame_" + str(num_frames)
-        # Add the frame
-        self.frames[frame_name] = df
-        # Append the hour numerically.
-        # DEPRECATED
-        #self.append_numeric_hour(frame_name)
-        # Append the timestamp column
-        self.append_full_timestamp(frame_name)
-        # Sort by time.
-        self.frames[frame_name].sort_values('timestamp', inplace=True)
-        # Reset the indices after sorting, and drop the old index.
-        self.frames[frame_name] = self.frames[frame_name].reset_index(
-            drop=True
-        )
-        print(self.gen_day_features([frame_name],
-                                    datetime(2010, 6, 4, 12), 4, 3))
+    def consume_frame(self, df, frame_type, frame_name=None):
+        # check how many unique parameter names there are
+        param_names = pd.Series(df['parameter_name'])
+        dataframes = []
+        if len(param_names) == 1:
+            dataframes = [df]
+        else:
+            for p in param_names:
+                dftemp = df.loc[df['parameter_name'] == p]
+                dataframes.append(dftemp)  
+        for d in dataframes:
+            if frame_name is None:
+                num_frames = len(self.frames.keys())
+                frame_name = "frame_" + str(num_frames)
+            # Add the frame
+            self.frames[frame_name] = d
+            # Append the hour numerically.
+            # DEPRECATED
+            #self.append_numeric_hour(frame_name)
+            # Append the timestamp column
+            self.append_full_timestamp(frame_name)
+            # Sort by time.
+            self.frames[frame_name].sort_values('timestamp', inplace=True)
+            # Reset the indices after sorting, and drop the old index.
+            self.frames[frame_name] = self.frames[frame_name].reset_index(
+                drop=True
+            )
+            # get either hourly features for a given day or average features for previous day
+            if frame_type == 'hourly':
+                print(self.gen_day_features([frame_name],
+                                        datetime(2010, 6, 4, 12), 4, 3))
+            elif frame_type == 'daily':
+                print(self.gen_avg_day_features([frame_name],
+                                        datetime(2010, 6, 4, 12), 4))
+            # else # I think the remaining case would be for previous year
 
 #    def run(self, frame_name):
 #        self.drop_columns()
@@ -70,8 +86,9 @@ class DataCleaner:
         num_frames = len(frames_of_interest)
         num_hours = hour_range[1] - hour_range[0]
         # Create an empty feature matrix first, then fill it up.
+
         features = np.empty(
-            (1, (day_look_back*year_look_back - 1)*num_frames*num_hours)
+            (1, (day_look_back*year_look_back - 1)*num_frames*(num_hours)) 
         )
 
         # Keep track of which feature we are writing to with this counter.
@@ -90,10 +107,52 @@ class DataCleaner:
                     for frame in frames_of_interest:
                         s = self.sample_at_time(frame, sample_time,
                                                 return_nearest=True)
+                        
                         features[0, counter] = s
                         # Make sure to increment the counter to write to the
                         # next feature cell!
                         counter += 1
+                            
+        return features
+
+    def gen_day_avg_features(self, frames_of_interest, day_of_interest,
+                         day_look_back):
+        """Generates features for the <day_look_back> days before the day of interest
+
+        Args:
+            day_of_interest (datetime):
+        """
+        num_frames = len(frames_of_interest)
+        num_hours = hour_range[1] - hour_range[0]
+        # Create an empty feature matrix first, then fill it up.
+
+        features = np.empty(
+            (1, (day_look_back*2)) 
+        )
+
+        # Keep track of which feature we are writing to with this counter.
+        counter = 0
+        for day in range(day_look_back):
+            if day == 0:
+                continue
+            # Compute the delta time, and find the time when we want to
+            # grab the sample.
+            delta = timedelta(days=-day)
+            sample_time = day_of_interest + delta
+            
+            sample_time.hour = 0
+            sample_time.minute = 0
+            sample_time.second = 0
+
+            for frame in frames_of_interest:
+                s_max, s_avg = self.sample_at_day(frame, sample_time,
+                                        return_nearest=True)
+                
+                features[0, counter] = s_max
+                counter += 1
+                features[0, counter] = s_avg
+                counter += 1
+                            
         return features
 
     def append_full_timestamp(self, frame_name):
@@ -191,6 +250,37 @@ class DataCleaner:
             t,
             return_nearest
         )['sample_measurement']
+
+    def sample_at_day(self, frame_name, d,
+                       return_nearest=False):
+        """Returns the sample_measurement from the specified day. Under the
+            hood, this simply calls [[data_at_time]], and extracts the
+            sampled_measurement value.
+
+        Args:
+            frame_name (str): Name of the frame to look at.
+            d (datetime): Datetime to calculate for. Since we are looking for a daily value,
+                the time should be 00:00:00 (all daily summaries have this as the time value)
+            return_nearest (bool, optional): Return the nearest row to the
+                provided date, if none could be found.
+
+        Returns:
+            Returns the sample_measurement value which matches the given date.
+            If multiple rows match this time, it will select the row
+            arbitrarily. If no rows match, it will return None, unless
+            return_nearest is True.
+        """
+        return (self.data_at_time(
+            frame_name,
+            d,
+            return_nearest
+        )['first_max_value'], 
+        self.data_at_time(
+            frame_name,
+            d,
+            return_nearest
+        )['arithmetic_mean']
+        )
 
 
     def append_numeric_hour(self, frame_name=None):
