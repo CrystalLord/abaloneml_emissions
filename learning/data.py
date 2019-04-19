@@ -19,7 +19,7 @@ class DataCleaner:
 
     def consume_frame(self, df, frame_type, frame_name=None):
         # check how many unique parameter names there are
-        param_names = pd.Series(df['parameter_name'])
+        param_names = pd.Series.unique(df['parameter_name'])
         dataframes = []
         if len(param_names) == 1:
             dataframes = [df]
@@ -28,6 +28,7 @@ class DataCleaner:
                 dftemp = df.loc[df['parameter_name'] == p]
                 dataframes.append(dftemp)  
         for d in dataframes:
+            print("Consuming dataframes")
             if frame_name is None:
                 num_frames = len(self.frames.keys())
                 frame_name = "frame_" + str(num_frames)
@@ -36,8 +37,11 @@ class DataCleaner:
             # Append the hour numerically.
             # DEPRECATED
             #self.append_numeric_hour(frame_name)
-            # Append the timestamp column
-            self.append_full_timestamp(frame_name)
+            if frame_type == 'hourly':
+                # Append the timestamp column for hourly df
+                self.append_full_timestamp(frame_name)
+            if frame_type == 'daily':
+                self.frames[frame_name]['timestamp'] = d['date_local']
             # Sort by time.
             self.frames[frame_name].sort_values('timestamp', inplace=True)
             # Reset the indices after sorting, and drop the old index.
@@ -49,8 +53,9 @@ class DataCleaner:
                 print(self.gen_day_features([frame_name],
                                         datetime(2010, 6, 4, 12), 4, 3))
             elif frame_type == 'daily':
-                print(self.gen_avg_day_features([frame_name],
-                                        datetime(2010, 6, 4, 12), 4))
+                print("in gen_avg_day_features")
+                print(self.gen_day_avg_features([frame_name],
+                                        datetime(2010, 6, 4, 12), 1))
             # else # I think the remaining case would be for previous year
 
 #    def run(self, frame_name):
@@ -152,7 +157,7 @@ class DataCleaner:
             day_of_interest (datetime):
         """
         num_frames = len(frames_of_interest)
-        num_hours = hour_range[1] - hour_range[0]
+        # num_hours = hour_range[1] - hour_range[0]
         # Create an empty feature matrix first, then fill it up.
 
         features = np.empty(
@@ -181,7 +186,6 @@ class DataCleaner:
                 counter += 1
                 features[0, counter] = s_avg
                 counter += 1
-                            
         return features
 
     def mean_between_dates(self, frame_name, startdate, enddate,
@@ -449,12 +453,8 @@ Ozone
 
 if __name__ == "__main__":
     cleaner = DataCleaner('query_storage')
-    filenames = ['../query_storage/no_query_cut7']
+    filenames = ['../query_storage/query_SD_no2_daily']
     for fp in filenames:
         df = pd.read_csv(fp)
-        cleaner.consume_frame(df)
-        print(cleaner.mean_between_dates(
-            'frame_0',
-            datetime(2017,6,1),
-            datetime(2017,7,1)
-        ))
+        cleaner.consume_frame(df, "daily")
+        # print(cleaner.frames)
