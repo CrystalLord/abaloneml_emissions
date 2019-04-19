@@ -81,7 +81,21 @@ class DataCleaner:
         """Generates features for a day of interest
 
         Args:
-            day_of_interest (datetime):
+            frame_of_interest (list(str)): Name of the DataFrames to look at.
+            day_of_interest (datetime): Day to calculate features from.
+            day_look_back (int): Days prior to the one of interest to extract
+                data from.
+            year_look_back (int): Years to get data from on each day we are
+                looking back on.
+            hour_range (tuple, optional): Range of data
+
+        Returns:
+            Returns a numpy ndarray of dimensions:
+                (1, (day_look_back*year_look_back - 1)*num_frames*num_hours).
+                To understand what this means, we return the sampled data at
+                every hour for every frame for every day we look back for every
+                year we look back. However, we do not include the day of
+                interest, therefore we remove 1 day of all years.
         """
         num_frames = len(frames_of_interest)
         num_hours = hour_range[1] - hour_range[0]
@@ -93,21 +107,36 @@ class DataCleaner:
 
         # Keep track of which feature we are writing to with this counter.
         counter = 0
-        for year in range(year_look_back):
-            for day in range(day_look_back):
-                if year == 0 and day == 0:
-                    continue
-                # Loop through all hours we care about.
-                for hour in range(hour_range[0], hour_range[1]):
-                    # Compute the delta time, and find the time when we want to
-                    # grab the sample.
-                    true_year = int(round((year*365.25)))
-                    delta = timedelta(days=-(day+true_year), hours=-hour)
-                    sample_time = day_of_interest + delta
-                    for frame in frames_of_interest:
-                        s = self.sample_at_time(frame, sample_time,
-                                                return_nearest=True)
-                        
+        for frame in frames_of_interest:
+            for year in range(year_look_back):
+                for day in range(day_look_back):
+                    if year == 0 and day == 0:
+                        continue
+                    # Loop through all hours we care about.
+                    last_hour_index = None
+                    for hour in range(hour_range[0], hour_range[1]):
+                        # Compute the delta time, and find the time when we want to
+                        # grab the sample.
+                        true_year = int(round((year*365.25)))
+                        delta = timedelta(days=-(day+true_year), hours=-hour)
+
+                        sample_time = day_of_interest + delta
+                        if last_hour_index is None:
+                            s, ind = self.sample_at_time(frame, sample_time,
+                                                    return_nearest=True)
+                            last_hour_index = ind
+                        else:
+                            hi_sample = min(last_hour_index + 100,
+                                len(self.frames[frame]))
+                            lo_sample = max(last_hour_index - 100, 0)
+                            s, ind = self.sample_at_time(
+                                frame,
+                                sample_time,
+                                return_nearest=True,
+                                lower_bound=lo_sample,
+                                upper_bound=hi_sample
+                            )
+                            last_hour_index = ind
                         features[0, counter] = s
                         # Make sure to increment the counter to write to the
                         # next feature cell!
@@ -155,6 +184,25 @@ class DataCleaner:
                             
         return features
 
+    def mean_between_dates(self, frame_name, startdate, enddate,
+                           colname='sample_measurement'):
+        """Calculates the mean frame value between to dates (or the closest
+        values of those dates).
+
+        Args:
+            date1 (datetime): Start date, inclusive.
+            date2 (datetime): End date, exclusive.
+            colname (str, optional): Name of column we want the mean across.
+                Default is 'sample_measurement'.
+
+        Returns:
+            Mean (float) of the selected column.
+        """
+        _, ind1 = self.data_at_time(frame_name, startdate, return_nearest=True)
+        _, ind2 = self.data_at_time(frame_name, enddate, return_nearest=True)
+        df = self.frames[frame_name]
+        return df.loc[ind1:ind2, colname].mean(axis=0)
+
     def append_full_timestamp(self, frame_name):
         """Appends the full timestamp object to the dataframe"""
         df = self.frames[frame_name]
@@ -180,7 +228,8 @@ class DataCleaner:
                 exit(-1)
         self.frames[frame_name]['timestamp'] = new_series
 
-    def data_at_time(self, frame_name, t, return_nearest=False):
+    def data_at_time(self, frame_name, t, return_nearest=False,
+                     upper_bound=None, lower_bound=0):
         """Returns a data frame which contains only one row which has the
             specified year, month, day, and hour as provided.
 
@@ -203,20 +252,23 @@ class DataCleaner:
         # Get the date time object to compare with.
 
         # set up our binary search.
-        current_index = len(df)//2
-        max_bound = len(df)-1
-        min_bound = 0
+        if upper_bound is None:
+            max_bound = len(df)-1
+        else:
+            max_bound = upper_bound
+        min_bound = lower_bound
+        current_index = (max_bound + min_bound)//2
         while True:
             comparison_time = df.loc[current_index, 'timestamp']
             if t == comparison_time:
-                return df.iloc[current_index, :]
+                return df.iloc[current_index, :], current_index
             elif max_bound == min_bound:
                 if return_nearest:
                     # The max or min bound is the closest item in the dataset.
-                    return df.iloc[min_bound, :]
+                    return df.iloc[min_bound, :], min_bound
                 else:
                     # Return None, indicating that nothing of value was found.
-                    return None
+                    return None, None
             else:
                 if t < comparison_time:
                     # Our time is earlier!
@@ -228,10 +280,12 @@ class DataCleaner:
                     current_index = (min_bound + max_bound)//2
 
     def sample_at_time(self, frame_name, t,
-                       return_nearest=False):
+                       return_nearest=False,
+                       lower_bound=0,
+                       upper_bound=None):
         """Returns the sample_measurement from the specified time. Under the
             hood, this simply calls [[data_at_time]], and extracts the
-            sampled_measurement value.
+            sample_measurement value.
 
         Args:
             frame_name (str): Name of the frame to look at.
@@ -245,11 +299,13 @@ class DataCleaner:
             arbitrarily. If no rows match, it will return None, unless
             return_nearest is True.
         """
-        return self.data_at_time(
+        out = self.data_at_time(
             frame_name,
             t,
-            return_nearest
-        )['sample_measurement']
+            return_nearest,
+            lower_bound=lower_bound,
+            upper_bound=upper_bound
+        )
 
     def sample_at_day(self, frame_name, d,
                        return_nearest=False):
@@ -281,7 +337,6 @@ class DataCleaner:
             return_nearest
         )['arithmetic_mean']
         )
-
 
     def append_numeric_hour(self, frame_name=None):
         """Appends the "numeric_hour" column to each data frame. This column
@@ -391,3 +446,15 @@ multiplicative factor between different units
 one_hot for parameter_name
 Ozone
 """
+
+if __name__ == "__main__":
+    cleaner = DataCleaner('query_storage')
+    filenames = ['../query_storage/no_query_cut7']
+    for fp in filenames:
+        df = pd.read_csv(fp)
+        cleaner.consume_frame(df)
+        print(cleaner.mean_between_dates(
+            'frame_0',
+            datetime(2017,6,1),
+            datetime(2017,7,1)
+        ))
