@@ -34,18 +34,8 @@ class DataCleaner:
         self.frames[frame_name] = self.frames[frame_name].reset_index(
             drop=True
         )
-        print(self.gen_day_features([frame_name],
-                                    datetime(2010, 6, 4, 12), 4, 3))
-
-#    def run(self, frame_name):
-#        self.drop_columns()
-#        #self.print_column_value()
-#        nparray = self.to_numpy_array()
-#        print(nparray)
-#        self.sanity_check(nparray)
-#        np.save(self.storage_dir + "/query_" +
-#                str(datetime.today()), nparray)
-#        print("Successful!")
+        #print(self.gen_day_features([frame_name],
+        #                            datetime(2010, 6, 4, 12), 4, 3))
 
     def to_numpy_array(self, frame_name):
         return self.frames[frame_name].to_numpy()
@@ -125,6 +115,25 @@ class DataCleaner:
                         # next feature cell!
                         counter += 1
         return features
+
+    def mean_between_dates(self, frame_name, startdate, enddate,
+                           colname='sample_measurement'):
+        """Calculates the mean frame value between to dates (or the closest
+        values of those dates).
+
+        Args:
+            date1 (datetime): Start date, inclusive.
+            date2 (datetime): End date, exclusive.
+            colname (str, optional): Name of column we want the mean across.
+                Default is 'sample_measurement'.
+
+        Returns:
+            Mean (float) of the selected column.
+        """
+        _, ind1 = self.data_at_time(frame_name, startdate, return_nearest=True)
+        _, ind2 = self.data_at_time(frame_name, enddate, return_nearest=True)
+        df = self.frames[frame_name]
+        return df.loc[ind1:ind2, colname].mean(axis=0)
 
     def append_full_timestamp(self, frame_name):
         """Appends the full timestamp object to the dataframe"""
@@ -340,3 +349,15 @@ multiplicative factor between different units
 one_hot for parameter_name
 Ozone
 """
+
+if __name__ == "__main__":
+    cleaner = DataCleaner('query_storage')
+    filenames = ['../query_storage/no_query_cut7']
+    for fp in filenames:
+        df = pd.read_csv(fp)
+        cleaner.consume_frame(df)
+        print(cleaner.mean_between_dates(
+            'frame_0',
+            datetime(2017,6,1),
+            datetime(2017,7,1)
+        ))
