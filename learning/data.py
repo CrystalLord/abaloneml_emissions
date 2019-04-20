@@ -85,7 +85,7 @@ class DataCleaner:
         while current_day != end_day:
             print("Processing training data for {}".format(current_day))
             peak_ozone, mean_ozone, _  = self.sample_at_day(
-                'query_SD_o3_daily',
+                'o3_daily',
                 current_day,
                 return_nearest=True
             )
@@ -245,9 +245,10 @@ class DataCleaner:
                 counter += 1
         return features
 
+
     def mean_between_dates(self, frame_name, startdate, enddate,
                            colname='sample_measurement'):
-        """Calculates the mean frame value between to dates (or the closest
+        """Calculates the mean frame value between two dates (or the closest
         values of those dates).
 
         Args:
@@ -520,5 +521,6 @@ if __name__ == "__main__":
     filenames = ['../query_storage/query_SD_no2_daily']
     for fp in filenames:
         df = pd.read_csv(fp)
-        cleaner.consume_frame(df, "daily")
+        frame_name = "no2_daily"
+        cleaner.consume_frame(df, "daily", frame_name)
         # print(cleaner.frames)

@@ -28,12 +28,16 @@ def main():
         cleaner = learning.DataCleaner('query_storage')
         for fp in args.filenames:
             df = pd.read_csv(fp)
-            name = fp.split("/")[-1]
-            split_on_param = not ("voc" in fp)
-            if "daily" in fp:
+            # name = fp.split("/")[-1]
+            measurement, time_type = fp.split("_")[-2:]
+            time_type = time_type.split(".")[0]
+            name = measurement + "_" + time_type
+
+            split_on_param = (measurement != "voc")
+            if time_type == "daily":
                 cleaner.consume_frame(df, "daily", frame_name=name,
                                       split_params=split_on_param)
-            if "hourly" in fp:
+            if time_type == "hourly":
                 cleaner.consume_frame(df, "hourly", frame_name=name,
                                       split_params=split_on_param)
 
