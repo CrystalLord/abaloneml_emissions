@@ -2,6 +2,8 @@
 import argparse
 
 import sys
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -26,14 +28,24 @@ def main():
         cleaner = learning.DataCleaner('query_storage')
         for fp in args.filenames:
             df = pd.read_csv(fp)
-            cleaner.consume_frame(df)
-        return
+            name = fp.split("/")[-1]
+            split_on_param = not ("voc" in fp)
+            if "daily" in fp:
+                cleaner.consume_frame(df, "daily", frame_name=name,
+                                      split_params=split_on_param)
+            if "hourly" in fp:
+                cleaner.consume_frame(df, "hourly", frame_name=name,
+                                      split_params=split_on_param)
+
+        cleaner.gen_full_training_data(datetime(2017, 6, 1),
+                                       datetime(2017, 9, 1),
+                                       'training_test.csv')
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')
         #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
         df = query_hawkins(client)
         print(df)
-        #dataCleaner = learning.DataCleaner(df, 'query_storage')
+        # dataCleaner = learning.DataCleaner(df, 'query_storage')
         #dataCleaner.run()
 
         #arr = dataCleaner.toNumpyArray()
@@ -76,23 +88,20 @@ def query_hawkins(client):
                 county_code,
                 site_num,
                 date_local,
-                time_local,
                 parameter_name,
                 latitude,
                 longitude,
-                sample_measurement,
-                mdl,
+                arithmetic_mean,
+                first_max_value,
+                first_max_hour,
                 units_of_measure
             FROM
-                `{}.nonoxnoy_hourly_summary`
+                `{}.no2_daily_summary`
             WHERE
-                (state_code = "06" AND
-				county_code = "073")
-                ;
+                state_code = '06' AND county_code = '073'
             '''
     df = client.query(sql, dry_run=False)
     return df
-
 
 def parseargs():
     """Parse user arguments."""

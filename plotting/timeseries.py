@@ -36,11 +36,11 @@ def timeseries(x, y, title='Time Series', ylabel='Value', plttype='line',
         sely = y[min_index:max_index+1]
     else:
         # Selected X & Y
-        selx = x
+        selx = mdates.date2num(x)
         sely = y
 
     if plttype == "line":
-        plt.plot(selx, sely)
+        plt.plot_date(selx, sely)
     else:
         plt.stem(selx, sely)
 
@@ -62,7 +62,12 @@ def main():
     args = vars(parser.parse_args())
 
     arr = args["np_array"]
+    print(arr)
     df_array = np.load(arr)
+
+    print("loaded array")
+# NOTE: columns will be named based on the query, so there will be things like:
+# VOC_parameter_name, ozone_parameter_name, etc.
 
     date_ind = 0 #np.where(df_array[0] =='date_local')
     time_ind = 1 #np.where(df_array[0] =='time_local')
@@ -80,7 +85,7 @@ def main():
                     valList.append(samp[samp_ind])   
         # print(timeList)
         # print(valList)
-        timeseries(timeList, valList, title=param + " levels vs. time", plttype='stem')
+        timeseries(timeList, valList, title=param + " levels vs. time", plttype='line')
 
 
 if __name__ == "__main__":
