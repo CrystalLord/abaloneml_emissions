@@ -12,66 +12,67 @@ class DataCleaner:
         """Create a DataCleaner Object.
 
         Args:
-            df: Data frame with all of the data
+            storage_dir (str): Name of directory to store query results.
         """
         self.storage_dir = storage_dir
         self.frames = {}
 
-    def consume_frame(self, df, frame_type, frame_name=None):
+        # Hourly feature frames.
+        self.hourly_fframes = []
+        self.daily_fframes = []
+
+    def consume_frame(self, df, frame_type, frame_name=None,
+                      split_params=True):
         # check how many unique parameter names there are
         param_names = pd.Series.unique(df['parameter_name'])
-        dataframes = []
-        if len(param_names) == 1:
-            dataframes = [df]
+        if frame_name is None:
+            num_frames = len(self.frames.keys())
+            frame_name = "frame_" + str(num_frames)
+        #self._consume_frame_helper(df, frame_type, frame_name)
+        if len(param_names) == 1 or not split_params:
+            self._consume_frame_helper(df, frame_type, frame_name)
         else:
             for p in param_names:
                 dftemp = df.loc[df['parameter_name'] == p]
-                dataframes.append(dftemp)  
-        for d in dataframes:
-            print("Consuming dataframes")
-            if frame_name is None:
-                num_frames = len(self.frames.keys())
-                frame_name = "frame_" + str(num_frames)
-            # Add the frame
-            self.frames[frame_name] = d
-            # Append the hour numerically.
-            # DEPRECATED
-            #self.append_numeric_hour(frame_name)
-            if frame_type == 'hourly':
-                # Append the timestamp column for hourly df
-                self.append_full_timestamp(frame_name)
-            if frame_type == 'daily':
-                self.frames[frame_name]['timestamp'] = d['date_local']
-            # Sort by time.
-            self.frames[frame_name].sort_values('timestamp', inplace=True)
-            # Reset the indices after sorting, and drop the old index.
-            self.frames[frame_name] = self.frames[frame_name].reset_index(
-                drop=True
-            )
-            # get either hourly features for a given day or average features for previous day
-            if frame_type == 'hourly':
-                print(self.gen_day_features([frame_name],
-                                        datetime(2010, 6, 4, 12), 4, 3))
-            elif frame_type == 'daily':
-                print("in gen_avg_day_features")
-                print(self.gen_day_avg_features([frame_name],
-                                        datetime(2010, 6, 4, 12), 1))
-            # else # I think the remaining case would be for previous year
+                dftemp = dftemp.reset_index(drop=True)
+                partial_frame_name = frame_name + "_" + p.replace(" ","_")
+                self._consume_frame_helper(dftemp, frame_type,
+                                           partial_frame_name)
 
-#    def run(self, frame_name):
-#        self.drop_columns()
-#        #self.print_column_value()
-#        nparray = self.to_numpy_array()
-#        print(nparray)
-#        self.sanity_check(nparray)
-#        np.save(self.storage_dir + "/query_" +
-#                str(datetime.today()), nparray)
-#        print("Successful!")
+    def _consume_frame_helper(self, df, frame_type, frame_name):
+        """Helper for the consume_frame function, so that we may handle
+            multiple parameters okay.
+        """
+        print("Consuming frame: {}".format(frame_name))
+        # Add the frame
+        self.frames[frame_name] = df
+        # Append the hour numerically.
+        # DEPRECATED
+        #self.append_numeric_hour(frame_name)
+        if frame_type == 'hourly':
+            # Append the timestamp column for hourly df
+            self.append_full_timestamp(frame_name)
+            self.hourly_fframes.append(frame_name)
+        if frame_type == 'daily':
+            self.append_full_timestamp(frame_name, use_hour=False)
+            self.daily_fframes.append(frame_name)
+        # Sort by time.
+        self.frames[frame_name].sort_values('timestamp', inplace=True)
+        # Reset the indices after sorting, and drop the old index.
+        self.frames[frame_name] = self.frames[frame_name].reset_index(
+            drop=True
+        )
+        # get either hourly features for a given day or average features for previous day
+        #if frame_type == 'hourly':
+        #    print(self.gen_day_features([frame_name],
+        #                            datetime(2010, 6, 4, 12), 4, 3))
+        #elif frame_type == 'daily':
+        #    print("in gen_avg_day_features")
+        #    print(self.gen_day_avg_features([frame_name],
+        #                            datetime(2010, 6, 4, 12), 1))
+        # else # I think the remaining case would be for previous year
 
-    def to_numpy_array(self, frame_name):
-        return self.frames[frame_name].to_numpy()
-
-    def gen_full_training_data(self, day_look_back, year_look_back):
+    def gen_full_training_data(self, start_day, end_day, data_file):
         """Produces the training and test data together as one long numpy
         matrix
 
@@ -79,7 +80,62 @@ class DataCleaner:
             A tuple of the Numpy ndarrays where the first element is the
             training data, and the second element is the regression data.
         """
-        raise NotImplemented("Working on it!")
+        current_day = start_day
+
+        while current_day != end_day:
+            print("Processing training data for {}".format(current_day))
+            peak_ozone, mean_ozone, _  = self.sample_at_day(
+                'query_SD_o3_daily',
+                current_day,
+                return_nearest=True
+            )
+            hour_features = self.gen_day_features(self.hourly_fframes,
+                current_day,
+                7,
+                1
+            )
+            day_features = self.gen_day_avg_features(
+                self.daily_fframes,
+                current_day,
+                7
+            )
+            misc_features = []
+            deltat = timedelta(days=93//2)
+            time_shift = timedelta(days=365)
+            for daily_frame in self.daily_fframes:
+                mean_val = self.mean_between_dates(
+                    daily_frame,
+                    current_day-deltat-time_shift,
+                    current_day+deltat-time_shift,
+                    "arithmetic_mean"
+                )
+                misc_features.append(mean_val)
+            misc_features = np.asarray(misc_features).reshape(1,-1)
+            weekday_features = (
+                self.weekday_features(current_day).reshape(1,-1)
+            )
+
+            # This is the full matrix!!!
+            full_matrix = np.concatenate(
+                (
+                    hour_features,
+                    day_features,
+                    misc_features,
+                    weekday_features,
+                    np.asarray([peak_ozone]).reshape(1,-1)
+                ),
+                axis=1
+            )
+
+            # Open the feature file in append mode so that we don't overwrite
+            # anything.
+            filehandle = open(data_file, 'a')
+            # Save the output!
+            np.savetxt(filehandle, full_matrix, fmt='%.10e')
+            filehandle.close()  # Make sure to close that file handle!
+
+            # Go to the next day.
+            current_day += timedelta(days=1)
 
     def gen_day_features(self, frames_of_interest, day_of_interest,
                          day_look_back, year_look_back, hour_range=(0,24)):
@@ -96,7 +152,7 @@ class DataCleaner:
 
         Returns:
             Returns a numpy ndarray of dimensions:
-                (1, (day_look_back*year_look_back - 1)*num_frames*num_hours).
+                (1, ((day_look_back+1)*year_look_back - 1)*num_frames*num_hours).
                 To understand what this means, we return the sampled data at
                 every hour for every frame for every day we look back for every
                 year we look back. However, we do not include the day of
@@ -104,17 +160,19 @@ class DataCleaner:
         """
         num_frames = len(frames_of_interest)
         num_hours = hour_range[1] - hour_range[0]
-        # Create an empty feature matrix first, then fill it up.
 
+        # Create an empty feature matrix first, then fill it up.
+        # The
         features = np.empty(
-            (1, (day_look_back*year_look_back - 1)*num_frames*(num_hours)) 
+            (1, ((day_look_back+1)*year_look_back - 1)*num_frames*(num_hours))
         )
 
         # Keep track of which feature we are writing to with this counter.
         counter = 0
         for frame in frames_of_interest:
+            print("    ...frame of interest: {}".format(frame))
             for year in range(year_look_back):
-                for day in range(day_look_back):
+                for day in range(day_look_back+1):
                     if year == 0 and day == 0:
                         continue
                     # Loop through all hours we care about.
@@ -132,7 +190,7 @@ class DataCleaner:
                             last_hour_index = ind
                         else:
                             hi_sample = min(last_hour_index + 100,
-                                len(self.frames[frame]))
+                                len(self.frames[frame])-1)
                             lo_sample = max(last_hour_index - 100, 0)
                             s, ind = self.sample_at_time(
                                 frame,
@@ -146,7 +204,6 @@ class DataCleaner:
                         # Make sure to increment the counter to write to the
                         # next feature cell!
                         counter += 1
-                            
         return features
 
     def gen_day_avg_features(self, frames_of_interest, day_of_interest,
@@ -156,32 +213,32 @@ class DataCleaner:
         Args:
             day_of_interest (datetime):
         """
+        # Remove hour and minute information.
+        doi = datetime(day_of_interest.year,
+                       day_of_interest.month,
+                       day_of_interest.day)
         num_frames = len(frames_of_interest)
-        # num_hours = hour_range[1] - hour_range[0]
         # Create an empty feature matrix first, then fill it up.
-
         features = np.empty(
-            (1, (day_look_back*2)) 
+            (1, (day_look_back*2)*num_frames)
         )
 
         # Keep track of which feature we are writing to with this counter.
         counter = 0
-        for day in range(day_look_back):
+        sample_time = doi
+        for day in range(day_look_back+1):
             if day == 0:
+                # Skip the current day.
                 continue
             # Compute the delta time, and find the time when we want to
             # grab the sample.
             delta = timedelta(days=-day)
-            sample_time = day_of_interest + delta
-            
-            sample_time.hour = 0
-            sample_time.minute = 0
-            sample_time.second = 0
+            sample_time = sample_time + delta
 
             for frame in frames_of_interest:
-                s_max, s_avg = self.sample_at_day(frame, sample_time,
+                s_max, s_avg, _ = self.sample_at_day(frame, sample_time,
                                         return_nearest=True)
-                
+
                 features[0, counter] = s_max
                 counter += 1
                 features[0, counter] = s_avg
@@ -207,30 +264,28 @@ class DataCleaner:
         df = self.frames[frame_name]
         return df.loc[ind1:ind2, colname].mean(axis=0)
 
-    def append_full_timestamp(self, frame_name):
+    def append_full_timestamp(self, frame_name, use_hour=True):
         """Appends the full timestamp object to the dataframe"""
         df = self.frames[frame_name]
         dateseries = df['date_local']
-        hourseries = df['time_local']
-        new_series = pd.Series(np.empty(dateseries.size,))
+        if use_hour:
+            hourseries = df['time_local']
+        new_series = pd.Series(np.empty(len(dateseries),))
         for i, t in dateseries.iteritems():
             oldtime = t.split("-")
             year = int(oldtime[0])
             month = int(oldtime[1])
             day = int(oldtime[2])
-            try:
+            if use_hour:
                 hour = int(hourseries[i].split(":")[0])
-                new_series[i] = datetime(year,  # Year
-                                         month,  # Month
-                                         day,  # Day
-                                         hour,  # Hour
-                                         0  # Minute
-                )
-            except:
-                print("Hour series:", hourseries[i])
-                print("i:",i)
-                exit(-1)
+            else:
+                hour = 0
+            d = datetime(year, month, day, hour, 0)
+            # We must use count here, because the index i is not unique nor
+            # does it map to actual values.
+            new_series[i] = d
         self.frames[frame_name]['timestamp'] = new_series
+
 
     def data_at_time(self, frame_name, t, return_nearest=False,
                      upper_bound=None, lower_bound=0):
@@ -263,7 +318,13 @@ class DataCleaner:
         min_bound = lower_bound
         current_index = (max_bound + min_bound)//2
         while True:
-            comparison_time = df.loc[current_index, 'timestamp']
+            try:
+                comparison_time = df.loc[current_index, 'timestamp']
+            except Exception as e:
+                print(df)
+                print(len(df))
+                print("Index of ", current_index)
+                raise e
             if t == comparison_time:
                 return df.iloc[current_index, :], current_index
             elif max_bound == min_bound:
@@ -310,15 +371,17 @@ class DataCleaner:
             lower_bound=lower_bound,
             upper_bound=upper_bound
         )
+        return out[0]['sample_measurement'], out[1]
 
-    def sample_at_day(self, frame_name, d,
+    def sample_at_day(self, daily_frame_name, d,
                        return_nearest=False):
         """Returns the sample_measurement from the specified day. Under the
             hood, this simply calls [[data_at_time]], and extracts the
             sampled_measurement value.
 
         Args:
-            frame_name (str): Name of the frame to look at.
+            daily_frame_name (str): Name of the frame to look at. Works only for the
+                daily frame types.
             d (datetime): Datetime to calculate for. Since we are looking for a daily value,
                 the time should be 00:00:00 (all daily summaries have this as the time value)
             return_nearest (bool, optional): Return the nearest row to the
@@ -330,17 +393,10 @@ class DataCleaner:
             arbitrarily. If no rows match, it will return None, unless
             return_nearest is True.
         """
-        return (self.data_at_time(
-            frame_name,
-            d,
-            return_nearest
-        )['first_max_value'], 
-        self.data_at_time(
-            frame_name,
-            d,
-            return_nearest
-        )['arithmetic_mean']
-        )
+        row, ind = self.data_at_time(daily_frame_name, d, return_nearest)
+        first_max = row['first_max_value']
+        mean = row['arithmetic_mean']
+        return first_max, mean, ind
 
     def append_numeric_hour(self, frame_name=None):
         """Appends the "numeric_hour" column to each data frame. This column
@@ -425,6 +481,14 @@ class DataCleaner:
         values_np = np.asarray(values).reshape(len(values), 1)
         onehot_values = enc.fit_transform(values_np).toarray()
         return onehot_values
+
+    def weekday_features(self, date):
+        """Returns a one-hot Numpy row vector of the weekday of the provided
+        date"""
+        vec = np.zeros((7,))
+        day_of_week = date.weekday()
+        vec[day_of_week] = 1.0
+        return vec
 
     def uniform_ppm(self,
                     sample_name="sample_measurement",
