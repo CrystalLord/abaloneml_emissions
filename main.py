@@ -41,9 +41,11 @@ def main():
                 cleaner.consume_frame(df, "hourly", frame_name=name,
                                       split_params=split_on_param)
 
-        cleaner.gen_full_training_data(datetime(2017, 6, 1),
-                                       datetime(2017, 9, 1),
-                                       'training_test.csv')
+        for year in range(2002,2012):
+            fp = 'training_data_summer_{}'.format(year)
+            cleaner.gen_full_training_data(datetime(year, 6, 1),
+                                           datetime(year, 9, 1),
+                                           fp)
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')
         #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
