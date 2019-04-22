@@ -72,12 +72,13 @@ def main():
 
         print("Num training: {}".format(X_train.shape))
         print("Num test: {}".format(X_test.shape))
-        print("Coefs:", reg.coef_)
+        print("Coefs:", np.argmax(reg.coef_))
         print("Train MSE:",mean_squared_error(y_train, reg.predict(X_train)))
         print("Test MSE:",mean_squared_error(y_test, reg.predict(X_test)))
 
-        # plt.scatter(times, predictions)
-        plt.scatter(test_times, test_predictions)
+        plt.scatter(test_times, test_predictions, s=20)
+        plt.vlines(test_times, test_predictions, y_test)
+        plt.scatter(test_times, y_test, s=20)
         plt.title('Linear Regression')
         plt.xlabel('Time')
         plt.ylabel('Peak Ozone, Parts Per Million')
