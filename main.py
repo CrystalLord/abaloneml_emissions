@@ -53,6 +53,36 @@ def main():
         #dataCleaner.run()
 
         #arr = dataCleaner.toNumpyArray()
+    if args.subparser_name == "regr":
+        arr = np.genfromtxt(args.datafile[0]);
+        timestamps = arr[:,0].tolist()
+        peak_ozone = arr[:,-1]
+        peak_ozone = peak_ozone.reshape((len(peak_ozone), 1))
+
+        X = arr[:,:-1]
+        print(X)
+        # TODO: change this to K-fold validation
+        X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone,
+                                                            test_size=0.1)
+        reg = learning.regr(X_train, y_train)
+
+        # predictions = reg.predict(X)
+        test_predictions = reg.predict(X_test)
+        test_times = timestamps[-len(X_test):]
+
+        print("Num training: {}".format(X_train.shape))
+        print("Num test: {}".format(X_test.shape))
+        print("Coefs:", reg.coef_)
+        print("Train MSE:",mean_squared_error(y_train, reg.predict(X_train)))
+        print("Test MSE:",mean_squared_error(y_test, reg.predict(X_test)))
+
+        # plt.scatter(times, predictions)
+        plt.scatter(test_times, test_predictions)
+        plt.title('Linear Regression')
+        plt.xlabel('Time')
+        plt.ylabel('Peak Ozone, Parts Per Million')
+        plt.show()
+
     if False:
         # This is what I used to produce the baseline.
         arr = np.load('query_SD_o3.npy');
@@ -118,6 +148,10 @@ def parseargs():
     ml_parser = subparsers.add_parser(
         'ml', help='Conduct machine learning operations')
     ml_parser.add_argument('filenames', nargs='+', type=str)
+
+    regr_parser= subparsers.add_parser(
+        'regr', help='Train regressor and view predictions')
+    regr_parser.add_argument('datafile', nargs=1, type=str)
     return parser.parse_args()
 
 if __name__ == "__main__":
