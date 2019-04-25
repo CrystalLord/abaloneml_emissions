@@ -41,9 +41,9 @@ def main():
                 cleaner.consume_frame(df, "hourly", frame_name=name,
                                       split_params=split_on_param)
 
-        cleaner.gen_full_training_data(datetime(2017, 9, 1),
-                                       datetime(2017, 10, 1),
-                                       'training_test.csv')
+        # cleaner.gen_full_training_data(datetime(2017, 9, 1),
+        #                                datetime(2017, 10, 1),
+        #                                'training_test.csv')
         model = learning.Model(cleaner)
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')

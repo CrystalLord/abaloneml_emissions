@@ -4,6 +4,7 @@ from google.cloud import bigquery
 import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
+from sklearn.metrics import mean_squared_error
 
 import learning
 
@@ -29,14 +30,20 @@ class Model:
             print("Previous version of file removed!")
         df = self.frames['o3_daily']
         days = df['timestamp'].unique()
-        print(days)
-        
+        days = [day for day in days if self.isSummer(day)]
+        test_days = [day for day in days if self.forTraining(day)]
+        days = [day for day in days if not self.forTraining(day)]
+
         train_MSE_list = np.empty((len(days),1))
         test_MSE_list = np.empty((len(days),1))
 
+        X_test, y_test = self.makeFeaturesForTesting(test_days[0], 
+            test_days[len(test_days)-1]+  timedelta(days=1), 
+            testFile)
+
         # A fold for every day we have
         for i in range(1, len(days)):
-            X_train, y_train, X_test, y_test = self.makeFeaturesForTesting(days[i-1], days[i], dataFile, testFile)
+            X_train, y_train = self.makeFeaturesForTraining(days[i], dataFile)
             # print('Test' + str(i))
             # print(X_train)
             reg = learning.regr(X_train, y_train)
@@ -52,19 +59,21 @@ class Model:
         return avg_train_scores, avg_test_scores
 
 
-    def makeFeaturesForTesting(self, start_day, end_day, data_file, test_file):
+    def makeFeaturesForTraining(self, current_day, data_file):
         # Will simply build testing features ontop of what we already have
-        self.data_cleaner.gen_full_training_data(start_day, end_day, data_file)
-        X_train, y_train = self.readCSV(data_file)
-        
-        start_day = end_day
+        end_day = current_day
         end_day += timedelta(days=1)
+        self.data_cleaner.gen_full_training_data(current_day, end_day, data_file)
+        X_train, y_train = self.readCSV(data_file)
+        return X_train, y_train
+
+    def makeFeaturesForTesting(self, start_day, end_day, test_file):
         if os.path.exists(test_file):
             os.remove(test_file)
             print("Previous version of test file removed!")
         self.data_cleaner.gen_full_training_data(start_day, end_day, test_file)
         X_test, y_test = self.readCSV(test_file)
-        return X_train, y_train, X_test, y_test
+        return X_test, y_test
 
     def readCSV(self, dataFile):
         # use pandas to read csv file
@@ -77,4 +86,11 @@ class Model:
         print("Total dataset size: {} \n".format(len(X)))
         return X, y
 
+    def isSummer(self, dateTime):
+        month = dateTime.month
+        return month >= 6 and month <=9
+
+    def forTraining(self, dateTime):
+        year = dateTime.year
+        return year == 2017
 
