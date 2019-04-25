@@ -30,11 +30,26 @@ class Model:
         df = self.frames['o3_daily']
         days = df['timestamp'].unique()
         print(days)
+        
+        train_MSE_list = np.empty((len(days),1))
+        test_MSE_list = np.empty((len(days),1))
+
         # A fold for every day we have
         for i in range(1, len(days)):
             X_train, y_train, X_test, y_test = self.makeFeaturesForTesting(days[i-1], days[i], dataFile, testFile)
-            print('Test' + str(i))
-            print(X_train)
+            # print('Test' + str(i))
+            # print(X_train)
+            reg = learning.regr(X_train, y_train)
+            train_MSE = mean_squared_error(y_train, reg.predict(X_train))
+            test_MSE = mean_squared_error(y_test, reg.predict(X_test))
+
+            train_MSE_list[i,0] = train_MSE
+            test_MSE_list[i,0] = test_MSE
+
+        avg_train_scores = train_MSE_list.mean(axis=1)
+        avg_test_scores = test_MSE_list.mean(axis=1)
+
+        return avg_train_scores, avg_test_scores
 
 
     def makeFeaturesForTesting(self, start_day, end_day, data_file, test_file):

@@ -60,9 +60,8 @@ def main():
         X = arr[:,:-1]
         print(X)
         # TODO: change this to K-fold validation
-        X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone,
-                                                            test_size=0.1)
-        reg = learning.regr(X_train, y_train)
+        # X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
+        # reg = learning.regr(X_train, y_train)
 
         # predictions = reg.predict(X)
         test_predictions = reg.predict(X_test)
