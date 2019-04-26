@@ -44,7 +44,6 @@ def main():
         # cleaner.gen_full_training_data(datetime(2017, 9, 1),
         #                                datetime(2017, 10, 1),
         #                                'training_test.csv')
-        model = learning.Model(cleaner)
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')
         #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
@@ -52,6 +51,8 @@ def main():
         print(df)
 
     if args.subparser_name == "regr":
+        model = learning.Model(args.datafile[0])
+
         arr = np.genfromtxt(args.datafile[0]);
         timestamps = arr[:,0].tolist()
         peak_ozone = arr[:,-1]
@@ -59,9 +60,8 @@ def main():
 
         X = arr[:,:-1]
         print(X)
-        # TODO: change this to K-fold validation
         # X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
-        # reg = learning.regr(X_train, y_train)
+        # reg = learning.model(X_train, y_train)
 
         # predictions = reg.predict(X)
         test_predictions = reg.predict(X_test)
