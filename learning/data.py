@@ -65,6 +65,7 @@ class DataCleaner:
         self.frames[frame_name] = self.frames[frame_name].reset_index(
             drop=True
         )
+        print(self.frames[frame_name])
         # get either hourly features for a given day or average features for previous day
         #if frame_type == 'hourly':
         #    print(self.gen_day_features([frame_name],
@@ -153,7 +154,7 @@ class DataCleaner:
             # anything.
             filehandle = open(data_file, 'a')
             # Save the output!
-            np.savetxt(filehandle, full_matrix, fmt='%.10e')
+            np.savetxt(filehandle, full_matrix, fmt='%.10e', delimiter = ',')
             filehandle.close()  # Make sure to close that file handle!
 
             if not name_flag:

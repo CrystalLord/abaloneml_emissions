@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.model_selection import train_test_split
+from sklearn.dummy import DummyRegressor
+from sklearn.linear_regression import LinearRegression
 
 import learning
 import plotting
@@ -40,7 +42,6 @@ def main():
             if time_type == "hourly":
                 cleaner.consume_frame(df, "hourly", frame_name=name,
                                       split_params=split_on_param)
-
         for year in range(2002,2012):
             fp = 'training_data_summer_{}'.format(year)
             cleaner.gen_full_training_data(datetime(year, 6, 1),
@@ -51,10 +52,64 @@ def main():
         #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
         df = query_hawkins(client)
         print(df)
-        # dataCleaner = learning.DataCleaner(df, 'query_storage')
-        #dataCleaner.run()
 
-        #arr = dataCleaner.toNumpyArray()
+    if args.subparser_name == "regr":
+
+        # Extract the dataset. To be replaced with CV by Pryianka.
+        # -----------------------------------------------------------------
+        arr = np.genfromtxt(args.datafile);
+        timestamps = arr[:,0].tolist()
+        peak_ozone = arr[:,-1]
+        peak_ozone = peak_ozone.reshape((len(peak_ozone), 1))
+
+
+        X = arr[:,1:-1]
+        X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
+        # -----------------------------------------------------------------
+        cv_model = Model(args.datafile)
+
+        if args.regressor == 'mean':
+            # We are using a dummy regressor. Set up one accordingly.
+            dummy = DummyRegressor(strategy='mean')
+            # Put in CV through cv_model instead. Don't use fit here.
+            dummy.fit(X_train, y_train)
+            print(mean_squared_error(y_train, dummy.predict(X_train)))
+            print(mean_squared_error(y_test, dummy.predict(X_test)))
+
+        if args.regressor == 'linear_ridge':
+            regr = learning.ridge(alpha=0)
+            regr.fit(X_train, y_train)
+
+        if args.subparser_name == 'meta':
+            # Scan through metaparameters
+            for alpha in (0, 1, 10, 100, 1000, 10**4, 10**5):
+                ridge_regr = learning.ridge(alpha=alpha)
+                lasso_regr = learning.lasso(alpha=alpha)
+
+
+        exit(-1)
+        print(X)
+        # TODO: change this to K-fold validation
+        # reg = learning.regr(X_train, y_train)
+
+        # predictions = reg.predict(X)
+        test_predictions = reg.predict(X_test)
+        test_times = timestamps[-len(X_test):]
+
+        print("Num training: {}".format(X_train.shape))
+        print("Num test: {}".format(X_test.shape))
+        print("Coefs:", np.argmax(reg.coef_))
+        print("Train MSE:",mean_squared_error(y_train, reg.predict(X_train)))
+        print("Test MSE:",mean_squared_error(y_test, reg.predict(X_test)))
+
+        plt.scatter(test_times, test_predictions, s=20)
+        plt.vlines(test_times, test_predictions, y_test)
+        plt.scatter(test_times, y_test, s=20)
+        plt.title('Linear Regression')
+        plt.xlabel('Time')
+        plt.ylabel('Peak Ozone, Parts Per Million')
+        plt.show()
+
     if False:
         # This is what I used to produce the baseline.
         arr = np.load('query_SD_o3.npy');
@@ -120,6 +175,13 @@ def parseargs():
     ml_parser = subparsers.add_parser(
         'ml', help='Conduct machine learning operations')
     ml_parser.add_argument('filenames', nargs='+', type=str)
+
+    regr_parser= subparsers.add_parser(
+        'regr', help='Train regressor and view predictions')
+    regr_parser.add_argument('datafile', type=str)
+    regr_parser.add_argument('regressor', type=str,
+                             default='linear',
+                             help="Can be 'linear' or 'mean'")
     return parser.parse_args()
 
 if __name__ == "__main__":
