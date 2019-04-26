@@ -116,7 +116,3 @@ class Model:
     def forTraining(self, dateTime):
         year = dateTime.year
         return year == 2011
-
-    def getData(self, timeStamp, days):
-        return
-
