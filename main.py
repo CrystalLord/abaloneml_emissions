@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.model_selection import train_test_split
+from sklearn.dummy import DummyRegressor
+from sklearn.linear_regression import LinearRegression
 
 import learning
 import plotting
@@ -41,9 +43,15 @@ def main():
                 cleaner.consume_frame(df, "hourly", frame_name=name,
                                       split_params=split_on_param)
 
+
         # cleaner.gen_full_training_data(datetime(2017, 9, 1),
         #                                datetime(2017, 10, 1),
         #                                'training_test.csv')
+        for year in range(2002,2012):
+            fp = 'training_data_summer_{}'.format(year)
+            cleaner.gen_full_training_data(datetime(year, 6, 1),
+                                           datetime(year, 9, 1),
+                                           fp)
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')
         #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
@@ -51,15 +59,45 @@ def main():
         print(df)
 
     if args.subparser_name == "regr":
+
         model = learning.Model(args.datafile[0])
 
+        # Extract the dataset. To be replaced with CV by Pryianka.
+        # -----------------------------------------------------------------
         arr = np.genfromtxt(args.datafile[0]);
         timestamps = arr[:,0].tolist()
         peak_ozone = arr[:,-1]
         peak_ozone = peak_ozone.reshape((len(peak_ozone), 1))
 
-        X = arr[:,:-1]
+
+        X = arr[:,1:-1]
+        X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
+        # -----------------------------------------------------------------
+        cv_model = Model(args.datafile)
+
+        if args.regressor == 'mean':
+            # We are using a dummy regressor. Set up one accordingly.
+            dummy = DummyRegressor(strategy='mean')
+            # Put in CV through cv_model instead. Don't use fit here.
+            dummy.fit(X_train, y_train)
+            print(mean_squared_error(y_train, dummy.predict(X_train)))
+            print(mean_squared_error(y_test, dummy.predict(X_test)))
+
+        if args.regressor == 'linear_ridge':
+            regr = learning.ridge(alpha=0)
+            regr.fit(X_train, y_train)
+
+        if args.subparser_name == 'meta':
+            # Scan through metaparameters
+            for alpha in (0, 1, 10, 100, 1000, 10**4, 10**5):
+                ridge_regr = learning.ridge(alpha=alpha)
+                lasso_regr = learning.lasso(alpha=alpha)
+                # CALL k-folds for each iteration
+
+
+        exit(-1)
         print(X)
+
         # X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
         # reg = learning.model(X_train, y_train)
 
@@ -149,7 +187,10 @@ def parseargs():
 
     regr_parser= subparsers.add_parser(
         'regr', help='Train regressor and view predictions')
-    regr_parser.add_argument('datafile', nargs=1, type=str)
+    regr_parser.add_argument('datafile', type=str)
+    regr_parser.add_argument('regressor', type=str,
+                             default='linear',
+                             help="Can be 'linear' or 'mean'")
     return parser.parse_args()
 
 if __name__ == "__main__":
