@@ -12,7 +12,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.model_selection import train_test_split
 from sklearn.dummy import DummyRegressor
-from sklearn.linear_regression import LinearRegression
+#from sklearn.linear_regression import LinearRegression
 
 import learning
 import plotting
