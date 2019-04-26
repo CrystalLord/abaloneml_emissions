@@ -72,7 +72,7 @@ def main():
         X = arr[:,1:-1]
         X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
         # -----------------------------------------------------------------
-        cv_model = Model(args.datafile)
+        cv_model = learning.Model(args.datafile)
 
         if args.regressor == 'mean':
             # We are using a dummy regressor. Set up one accordingly.
@@ -91,7 +91,7 @@ def main():
             for alpha in (0, 1, 10, 100, 1000, 10**4, 10**5):
                 ridge_regr = learning.ridge(alpha=alpha)
                 lasso_regr = learning.lasso(alpha=alpha)
-                # CALL k-folds for each iteration
+
 
 
         exit(-1)

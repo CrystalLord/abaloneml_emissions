@@ -53,7 +53,8 @@ class Model:
         for i in range(0, len(days), 4):
             # Adding training data for the day we are adding to the fold
             X_train, y_train = self.makeFeaturesForTraining(i, dataFile)
-            reg = learning.regr(X_train, y_train)
+            reg = learning.regr()
+            reg.fit(X_train, y_train)
             train_MSE = mean_squared_error(y_train, reg.predict(X_train))
             test_MSE = mean_squared_error(y_test, reg.predict(X_test))
 
