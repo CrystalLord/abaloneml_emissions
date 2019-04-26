@@ -18,7 +18,6 @@ class Model:
             cleaner: DataCleaner object used
         """
         self.arr = np.genfromtxt(trainingFile)
-        print(self.arr)
         self.k_folds()
 
     def k_folds(self, regr = None):
@@ -33,8 +32,6 @@ class Model:
         # Removing old version of the file training data will be read from
         if os.path.exists(dataFile):
             os.remove(dataFile)
-            print("Previous version of file removed!")
-
         # Getting the dates for which we'll need training and testing data
         days = self.arr[:,0].tolist()
         days = [datetime.utcfromtimestamp(x) for x in days]
@@ -92,7 +89,6 @@ class Model:
         # Remove previous version of test file
         if os.path.exists(test_file):
             os.remove(test_file)
-            print("Previous version of test file removed!")
         filehandle = open(test_file, 'a')
         for index in range(len(self.arr)-len(test_days), len(self.arr)):
             # Save the output!
@@ -115,7 +111,6 @@ class Model:
         X = df.iloc[:,cols].values
         # get label
         y = df.iloc[:,label_col].values
-        print("Total dataset size: {} \n".format(len(X)))
         return X, y
 
     def forTraining(self, dateTime):
