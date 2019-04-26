@@ -59,11 +59,11 @@ def main():
         print(df)
 
     if args.subparser_name == "regr":
-        trainingFile = args.datafile[0]
+        trainingFile = args.datafile
         model = learning.Model(trainingFile)
         # Extract the dataset. To be replaced with CV by Pryianka.
         # -----------------------------------------------------------------
-        arr = np.genfromtxt(args.datafile[0])
+        arr = np.genfromtxt(args.datafile)
         timestamps = arr[:,0].tolist()
         peak_ozone = arr[:,-1]
         peak_ozone = peak_ozone.reshape((len(peak_ozone), 1))
