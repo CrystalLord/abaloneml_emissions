@@ -44,7 +44,6 @@ def main():
         # cleaner.gen_full_training_data(datetime(2017, 9, 1),
         #                                datetime(2017, 10, 1),
         #                                'training_test.csv')
-        model = learning.Model(cleaner)
     if args.subparser_name == "query":
         client = learning.EpaClient('query_storage')
         #sql = 'SELECT * FROM `{}.air_quality_annual_summary` LIMIT 10;'
@@ -52,7 +51,9 @@ def main():
         print(df)
 
     if args.subparser_name == "regr":
-        arr = np.genfromtxt(args.datafile[0]);
+        trainingFile = args.datafile[0]
+        model = learning.Model(trainingFile)
+        arr = np.genfromtxt(args.datafile[0])
         timestamps = arr[:,0].tolist()
         peak_ozone = arr[:,-1]
         peak_ozone = peak_ozone.reshape((len(peak_ozone), 1))
