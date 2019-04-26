@@ -6,6 +6,9 @@ from datetime import datetime, timedelta
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
+LENGTH_OF_SEASON = 93
+DAYS_LOOK_BACK = 7
+
 class DataCleaner:
 
     def __init__(self, storage_dir):
@@ -81,27 +84,37 @@ class DataCleaner:
             A tuple of the Numpy ndarrays where the first element is the
             training data, and the second element is the regression data.
         """
+        # Initialise the name flag as false so that the first time we go
+        # through the loop, we grab all the feature names.
+        name_flag = False
         current_day = start_day
 
         while current_day != end_day:
             print("Processing training data for {}".format(current_day))
-            peak_ozone, mean_ozone, _  = self.sample_at_day(
+
+            # Get the peak ozone!
+            peak_ozone, _, _  = self.sample_at_day(
                 'o3_daily',
                 current_day,
                 return_nearest=True
             )
-            hour_features = self.gen_day_features(self.hourly_fframes,
+
+            hour_features, h_feat_names = self.gen_day_features(
+                self.hourly_fframes,
                 current_day,
-                7,
+                DAYS_LOOK_BACK,
                 1
             )
-            day_features = self.gen_day_avg_features(
+            day_features, d_feat_names = self.gen_day_avg_features(
                 self.daily_fframes,
                 current_day,
-                7
+                DAYS_LOOK_BACK
             )
+
             misc_features = []
-            deltat = timedelta(days=93//2)
+            misc_feature_names = []
+            # Compute the seasonal average.
+            deltat = timedelta(days=LENGTH_OF_SEASON//2)
             time_shift = timedelta(days=365)
             for daily_frame in self.daily_fframes:
                 mean_val = self.mean_between_dates(
@@ -111,14 +124,22 @@ class DataCleaner:
                     "arithmetic_mean"
                 )
                 misc_features.append(mean_val)
+                misc_feature_names.append(daily_frame + "_avg_seasonal")
             misc_features = np.asarray(misc_features).reshape(1,-1)
-            weekday_features = (
-                self.weekday_features(current_day).reshape(1,-1)
-            )
 
+            weekday_features, weekday_feature_names = (
+                self.weekday_features(current_day)
+            )
+            weekday_features = weekday_features.reshape(1, -1)
+
+            # Get the timestamp of the current_day, and store that.
+            # We shouldn't use that as a feature, but it's valuable to humans.
+            timestamp_col = np.asarray((current_day.timestamp(),
+                                        )).reshape(1,1)
             # This is the full matrix!!!
             full_matrix = np.concatenate(
                 (
+                    timestamp_col,
                     hour_features,
                     day_features,
                     misc_features,
@@ -128,6 +149,7 @@ class DataCleaner:
                 axis=1
             )
 
+
             # Open the feature file in append mode so that we don't overwrite
             # anything.
             filehandle = open(data_file, 'a')
@@ -135,6 +157,21 @@ class DataCleaner:
             np.savetxt(filehandle, full_matrix, fmt='%.10e', delimiter = ',')
             filehandle.close()  # Make sure to close that file handle!
 
+            if not name_flag:
+                # Only run this code once! Put it in a nearby file.
+                # Append all the feature names together. Write this to a file.
+                full_names = (
+                    ["timestamp"] +
+                    h_feat_names +
+                    d_feat_names +
+                    misc_feature_names +
+                    weekday_feature_names +
+                    ["peak_ozone"]
+                )
+                assert(len(full_names) == full_matrix.shape[1])
+                with open(data_file + "_names", "w") as f:
+                    f.write(",".join(full_names))
+                name_flag = True
             # Go to the next day.
             current_day += timedelta(days=1)
 
@@ -168,6 +205,7 @@ class DataCleaner:
             (1, ((day_look_back+1)*year_look_back - 1)*num_frames*(num_hours))
         )
 
+        feature_names = []
         # Keep track of which feature we are writing to with this counter.
         counter = 0
         for frame in frames_of_interest:
@@ -202,10 +240,18 @@ class DataCleaner:
                             )
                             last_hour_index = ind
                         features[0, counter] = s
+                        feature_names.append(
+                            "{}_y{}_d{}_h{}".format(
+                                frame,
+                                year,
+                                day,
+                                hour
+                            )
+                        )
                         # Make sure to increment the counter to write to the
                         # next feature cell!
                         counter += 1
-        return features
+        return features, feature_names
 
     def gen_day_avg_features(self, frames_of_interest, day_of_interest,
                          day_look_back):
@@ -223,6 +269,8 @@ class DataCleaner:
         features = np.empty(
             (1, (day_look_back*2)*num_frames)
         )
+
+        feature_names = []
 
         # Keep track of which feature we are writing to with this counter.
         counter = 0
@@ -244,7 +292,9 @@ class DataCleaner:
                 counter += 1
                 features[0, counter] = s_avg
                 counter += 1
-        return features
+                feature_names.append("{}_{}_max".format(frame, day))
+                feature_names.append("{}_{}_avg".format(frame, day))
+        return features, feature_names
 
 
     def mean_between_dates(self, frame_name, startdate, enddate,
@@ -485,12 +535,17 @@ class DataCleaner:
         return onehot_values
 
     def weekday_features(self, date):
-        """Returns a one-hot Numpy row vector of the weekday of the provided
-        date"""
+        """Returns a tuple of the form:
+            1: one-hot Numpy row vector of the weekday of the provided
+            date
+            2: A list of the feature names.
+        """
         vec = np.zeros((7,))
         day_of_week = date.weekday()
         vec[day_of_week] = 1.0
-        return vec
+        feature_names = ['monday', 'tuesday', 'wednesday', 'thursday',
+                         'friday', 'saturday', 'sunday']
+        return vec, feature_names
 
     def uniform_ppm(self,
                     sample_name="sample_measurement",
