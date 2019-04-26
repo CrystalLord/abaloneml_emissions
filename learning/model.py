@@ -10,7 +10,7 @@ import learning
 
 class Model:
 
-    def __init__(self, trainingFile):
+    def __init__(self, trainingFile, regr):
         """Create a Model Object.
 
         Args:
@@ -18,9 +18,9 @@ class Model:
             cleaner: DataCleaner object used
         """
         self.arr = np.genfromtxt(trainingFile)
-        self.k_folds()
-
-    def k_folds(self, regr = None):
+        print(self.arr)
+        self.k_folds(regr=regr)
+    def k_folds(self, regr = 'linear'):
         """Runs time based k-folds on a linear regression by default
             or some inputted classifier.
 
@@ -46,11 +46,19 @@ class Model:
         X_test, y_test = self.makeFeaturesForTesting(test_days, 
             testFile)
 
+        if regr == 'linear':
+            reg = learning.linearregression.regr()
+        elif regr == 'ridge':
+            reg = learning.linearregression.ridge()
+        elif regr == 'lasso':
+            reg = learning.linearregression.lasso()
+        else:
+            reg = learning.linearregression.dummy()
+
         # A fold for every day we have
         for i in range(0, len(days), 4):
             # Adding training data for the day we are adding to the fold
             X_train, y_train = self.makeFeaturesForTraining(i, dataFile)
-            reg = learning.regr()
             reg.fit(X_train, y_train)
             train_MSE = mean_squared_error(y_train, reg.predict(X_train))
             test_MSE = mean_squared_error(y_test, reg.predict(X_test))
@@ -58,11 +66,13 @@ class Model:
             train_MSE_list[i,0] = train_MSE
             test_MSE_list[i,0] = test_MSE
 
-        avg_train_scores = train_MSE_list.mean(axis=1)
-        avg_test_scores = test_MSE_list.mean(axis=1)
+        avg_train_scores = train_MSE_list.mean(axis=0)
+        avg_test_scores = test_MSE_list.mean(axis=0)
 
         print(min(train_MSE_list))
         print(min(test_MSE_list))
+        print(avg_train_scores)
+        print(avg_test_scores)
         return avg_train_scores, avg_test_scores
 
 
