@@ -7,10 +7,9 @@ def regr():
     reg = linear_model.LinearRegression()
     return reg
 
-def dummy(X, y):
+def dummy():
     """Returns the dummy regressor, trained on the provided data."""
     dummy = DummyRegressor('mean')
-    dummy.fit(X, y)
     return dummy
 
 def ridge(alpha=1.0):

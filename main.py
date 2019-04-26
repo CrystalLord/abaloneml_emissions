@@ -60,7 +60,8 @@ def main():
 
     if args.subparser_name == "regr":
         trainingFile = args.datafile
-        model = learning.Model(trainingFile)
+        # model = learning.Model(trainingFile) # Is this necessary?
+
         # Extract the dataset. To be replaced with CV by Pryianka.
         # -----------------------------------------------------------------
         arr = np.genfromtxt(args.datafile)
@@ -72,19 +73,20 @@ def main():
         X = arr[:,1:-1]
         X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
         # -----------------------------------------------------------------
-        cv_model = learning.Model(args.datafile)
+        cv_model = learning.Model(args.datafile, args.regressor)
 
-        if args.regressor == 'mean':
-            # We are using a dummy regressor. Set up one accordingly.
-            dummy = DummyRegressor(strategy='mean')
-            # Put in CV through cv_model instead. Don't use fit here.
-            dummy.fit(X_train, y_train)
-            print(mean_squared_error(y_train, dummy.predict(X_train)))
-            print(mean_squared_error(y_test, dummy.predict(X_test)))
 
-        if args.regressor == 'linear_ridge':
-            regr = learning.ridge(alpha=0)
-            regr.fit(X_train, y_train)
+        # if args.regressor == 'mean':
+        #     # We are using a dummy regressor. Set up one accordingly.
+        #     dummy = DummyRegressor(strategy='mean')
+        #     # Put in CV through cv_model instead. Don't use fit here.
+        #     dummy.fit(X_train, y_train)
+        #     print(mean_squared_error(y_train, dummy.predict(X_train)))
+        #     print(mean_squared_error(y_test, dummy.predict(X_test)))
+
+        # if args.regressor == 'linear_ridge':
+        #     regr = learning.ridge(alpha=0)
+        #     regr.fit(X_train, y_train)
 
         if args.subparser_name == 'meta':
             # Scan through metaparameters
@@ -189,7 +191,7 @@ def parseargs():
     regr_parser.add_argument('datafile', type=str)
     regr_parser.add_argument('regressor', type=str,
                              default='linear',
-                             help="Can be 'linear' or 'mean'")
+                             help="Can be 'linear', 'ridge', 'lasso', or 'mean'")
     return parser.parse_args()
 
 if __name__ == "__main__":
