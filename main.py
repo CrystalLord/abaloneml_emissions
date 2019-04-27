@@ -64,35 +64,62 @@ def main():
 
         # Extract the dataset. To be replaced with CV by Pryianka.
         # -----------------------------------------------------------------
-        arr = np.genfromtxt(args.datafile)
-        timestamps = arr[:,0].tolist()
-        peak_ozone = arr[:,-1]
-        peak_ozone = peak_ozone.reshape((len(peak_ozone), 1))
+        regr_name = args.regressor
+        normalize = True
+        validator = learning.CrossValidator(args.datafile,
+                                            normalize=normalize)
+        out_matrix = validator.k_folds(
+            regr_name,
+            alpha_range=[0.001, 0.0055,
+                         0.01, 0.055, 0.07,
+                         0.1, 0.5, 1.0,
+                         1e3,
+                         1e5,
+                         5e6,
+                         1e7,
+                         3e7,
+                         5e7,
+                         7e7,
+                         1e8]
+        )
+        header = "train_mse,validation_mse,full_train_mse,test_mse,alphas"
+        np.savetxt(f"{regr_name}_cv_output_mat.csv",
+                   out_matrix,
+                   delimiter=',',
+                   header=header)
 
+        train_mse = out_matrix[:,0]
+        validation_mse = out_matrix[:,1]
+        full_train_mse = out_matrix[:,2]
+        test_mse = out_matrix[:,3]
+        alphas = out_matrix[:,4]
 
-        X = arr[:,1:-1]
-        X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
-        # -----------------------------------------------------------------
-        cv_model = learning.Model(args.datafile, args.regressor)
+        print(f"Full Train Mean MSE {full_train_mse.mean()}")
+        print(f"Test Mean MSE {test_mse.mean()}")
 
+        # Set up title.
+        title = f"'{regr_name}' Regression with Time Nested CV"
+        if normalize:
+            title += " (Normalized)"
 
-        # if args.regressor == 'mean':
-        #     # We are using a dummy regressor. Set up one accordingly.
-        #     dummy = DummyRegressor(strategy='mean')
-        #     # Put in CV through cv_model instead. Don't use fit here.
-        #     dummy.fit(X_train, y_train)
-        #     print(mean_squared_error(y_train, dummy.predict(X_train)))
-        #     print(mean_squared_error(y_test, dummy.predict(X_test)))
+        plt.plot(train_mse*100, label='Full Train MSE')
+        plt.plot(test_mse*100, label='Test MSE')
+        plt.title(title)
+        plt.ylabel("% Error & Alpha")
+        plt.xlabel('Week (Validation Fold)')
+        plt.legend()
+        plt.savefig(f"{regr_name}_cv_plot.png", dpi=196)
+        plt.show()
 
-        # if args.regressor == 'linear_ridge':
-        #     regr = learning.ridge(alpha=0)
-        #     regr.fit(X_train, y_train)
+        # Show alphas.
+        plt.plot(alphas, '--', label='Alpha')
+        plt.show()
 
-        if args.subparser_name == 'meta':
-            # Scan through metaparameters
-            for alpha in (0, 1, 10, 100, 1000, 10**4, 10**5):
-                ridge_regr = learning.ridge(alpha=alpha)
-                lasso_regr = learning.lasso(alpha=alpha)
+    if args.subparser_name == 'meta':
+        # Scan through metaparameters
+        for alpha in (0, 1, 10, 100, 1000, 10**4, 10**5):
+            ridge_regr = learning.ridge(alpha=alpha)
+            lasso_regr = learning.lasso(alpha=alpha)
 
 
 
