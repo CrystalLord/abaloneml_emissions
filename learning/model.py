@@ -23,18 +23,19 @@ REGR_COL = -1
 
 class CrossValidator:
 
-    def __init__(self, trainingFile, normalize):
+    def __init__(self, training_data, normalize):
         """Create a Model Object.
 
         Args:
             df: Data frame with all of the data
             cleaner: DataCleaner object used
         """
-        self.data = np.genfromtxt(trainingFile)
+        self.data = training_data
         if normalize:
             cut_out = self.data[:,DATA_START_COL:REGR_COL]
             cut_normed = preprocessing.normalize(cut_out)
             self.data[:,DATA_START_COL:REGR_COL] = cut_normed
+        self.models = []
 
     def k_folds(self, regr_name, fold_size=14, alpha_range=None):
         """Runs time based k-folds on a linear regression by default
@@ -88,6 +89,7 @@ class CrossValidator:
             # Create a model with the best found alpha.
             regr = self.get_model(regr_name, alpha=alpha)
             regr.fit(X_train, y_train)
+            self.models.append(regr)
 
             # Get the full train mse
             full_train_mse = mean_squared_error(y_train,
@@ -273,6 +275,64 @@ class CrossValidator:
             output_list += [a_train, a_vald]
         return output_list
 
+    def simple_k_folds(self, regr_name, alpha_range=None,
+                       fold_size=14, num_test=93):
+        """Simple CV.
+        """
+        days = self.data[:, 0].tolist()
+        days = [datetime.utcfromtimestamp(x) for x in days]
+
+        train_data, test_data = self.cut_on_date(datetime(2011, 1, 1),
+                                                 self.data)
+
+        # Get the number of folds in the dataset.
+        num_training_folds = (len(train_data)-num_test)//fold_size - 1
+        out_matrix = np.empty((num_training_folds-1, 5))
+
+        # Loop through while the start of our fold is less
+        # Make sure to start at 1, because we need to train on *something*.
+        for fold_index in range(1, num_training_folds):
+
+            # Find where our start and end indices are for the folds.
+            train_fold_start = 0
+            train_fold_end = fold_index * fold_size
+            test_fold_end = (fold_index + 1) * fold_size
+
+            # Slice our data for training and testing.
+            X_train = self.data[train_fold_start:train_fold_end,
+                                DATA_START_COL:REGR_COL]
+            y_train = self.data[train_fold_start:train_fold_end,
+                                REGR_COL].reshape(-1, 1)
+            X_vald = self.data[train_fold_end:test_fold_end,
+                               DATA_START_COL:REGR_COL]
+            y_vald = self.data[train_fold_end:test_fold_end,
+                               REGR_COL].reshape(-1, 1)
+
+            regr = self.get_model(regr_name)
+            regr.fit(X_train, y_train)
+            self.models.append(regr)
+
+            full_train_mse = mean_squared_error(y_train,
+                                                regr.predict(X_train))
+            vald_mse = mean_squared_error(y_vald, regr.predict(X_vald))
+
+            i = fold_index - 1
+            out_matrix[i,0] = 0
+            out_matrix[i,1] = vald_mse
+            out_matrix[i,2] = full_train_mse
+            out_matrix[i,3] = 0
+            out_matrix[i,4] = 0
+
+        # Slice our data for training and testing.
+        final_train_mse, final_test_mse = self.final_test(
+            regr_name,
+            train_data,
+            test_data
+        )
+        for i in range(num_training_folds-1):
+            out_matrix[i, 3] = final_test_mse
+        return out_matrix
+
     def get_model(self, regr_name, **kwargs):
         """Returns a scikit learn model mapped to the provided name. Keyword
             args are put into the model creator.
@@ -281,7 +341,51 @@ class CrossValidator:
             return linear_model.Lasso(max_iter=5000, **kwargs)
         elif regr_name == "ridge":
             return linear_model.Ridge(max_iter=5000, **kwargs)
+        elif regr_name == "linear":
+            return linear_model.LinearRegression(**kwargs)
         elif regr_name == "mean":
             return DummyRegressor('mean')
         else:
             raise ValueError(f"Unrecognised model name {regr_name}")
+
+    def cut_on_date(self, cut_date, x, *args):
+        days = x[:, 0].tolist()
+        days = [datetime.utcfromtimestamp(x) for x in days]
+
+        split_index = x.shape[0]
+        for ind, d in enumerate(days):
+            if d >= cut_date:
+                split_index = ind
+                break
+
+        x_train = x[:split_index,:]
+        x_vald = x[split_index:,:]
+        output_list = [x_train, x_vald]
+        for a in args:
+            try:
+                a_train = a[:split_index,:]
+                a_vald = a[split_index:,:]
+            except IndexError:
+                a_train = a[:split_index]
+                a_vald = a[split_index:]
+            output_list += [a_train, a_vald]
+        return output_list
+
+    def final_test(self, regr_name, train_data, test_data,
+                   model_params={}):
+
+        X_train = train_data[:,
+                            DATA_START_COL:REGR_COL]
+        y_train = train_data[:,
+                            REGR_COL].reshape(-1, 1)
+        X_test = test_data[:,
+                           DATA_START_COL:REGR_COL]
+        y_test = test_data[:,
+                           REGR_COL].reshape(-1, 1)
+
+        # Generate the model we want with the desired params.
+        regr = self.get_model(regr_name, **model_params)
+        regr.fit(X_train, y_train)
+        train_mse = mean_squared_error(y_train, regr.predict(X_train))
+        test_mse = mean_squared_error(y_test, regr.predict(X_test))
+        return train_mse, test_mse
