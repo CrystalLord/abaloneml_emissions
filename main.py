@@ -66,22 +66,20 @@ def main():
         # -----------------------------------------------------------------
         regr_name = args.regressor
         normalize = True
-        validator = learning.CrossValidator(args.datafile,
+
+        data = np.genfromtxt(args.datafile)
+        weekenddata = data[:, [0, -8, -7, -6, -5, -4, -3, -2, -1]]
+
+        validator = learning.CrossValidator(weekenddata,
                                             normalize=normalize)
+
         out_matrix = validator.k_folds(
             regr_name,
-            alpha_range=[0.001, 0.0055,
-                         0.01, 0.055, 0.07,
-                         0.1, 0.5, 1.0,
-                         1e3,
-                         1e5,
-                         5e6,
-                         1e7,
-                         3e7,
-                         5e7,
-                         7e7,
-                         1e8]
+            alpha_range=[1.0]
         )
+
+        #print(validator.models[-1].coef_)
+        #print(validator.models[-1].intercept_)
         header = "train_mse,validation_mse,full_train_mse,test_mse,alphas"
         np.savetxt(f"{regr_name}_cv_output_mat.csv",
                    out_matrix,
@@ -102,7 +100,7 @@ def main():
         if normalize:
             title += " (Normalized)"
 
-        plt.plot(train_mse*100, label='Full Train MSE')
+        plt.plot(full_train_mse*100, label='Full Train MSE')
         plt.plot(test_mse*100, label='Test MSE')
         plt.title(title)
         plt.ylabel("% Error & Alpha")
@@ -120,11 +118,6 @@ def main():
         for alpha in (0, 1, 10, 100, 1000, 10**4, 10**5):
             ridge_regr = learning.ridge(alpha=alpha)
             lasso_regr = learning.lasso(alpha=alpha)
-
-
-
-        exit(-1)
-        print(X)
 
         # X_train, X_test, y_train, y_test = train_test_split(X, peak_ozone, test_size=0.1)
         # reg = learning.model(X_train, y_train)
@@ -220,6 +213,22 @@ def parseargs():
                              default='linear',
                              help="Can be 'linear', 'ridge', 'lasso', or 'mean'")
     return parser.parse_args()
+
+
+def mean_of_week(data):
+    swend = 0
+    swday = 0
+    cwend = 0
+    cwday = 0
+    for i in range(data.shape[0]):
+        if data[i, -2] == 1.0 or data[i, -3] == 1.0:
+            # Is weekend.
+            swend += data[i,-1]
+            cwend += 1
+        else:
+            swday += data[i,-1]
+            cwday += 1
+    return swday/cwday, swend/cwend
 
 if __name__ == "__main__":
     main()
