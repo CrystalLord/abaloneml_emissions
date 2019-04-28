@@ -8,6 +8,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.dummy import DummyRegressor
 import sklearn.linear_model as linear_model
 from sklearn import preprocessing
+from sklearn.model_selection import ShuffleSplit
 
 import learning
 
@@ -389,3 +390,37 @@ class CrossValidator:
         train_mse = mean_squared_error(y_train, regr.predict(X_train))
         test_mse = mean_squared_error(y_test, regr.predict(X_test))
         return train_mse, test_mse
+
+    def super_simple_k_folds(self, regr_name, alpha_range=None,
+                       fold_size=14, num_test=93):
+        """Simple CV.
+        """
+        out_matrix = np.empty((1, 5))
+
+        firstSplit = ShuffleSplit(n_splits=1, test_size=.05, random_state=0)
+        for train_index, test_index in firstSplit.split(self.data):
+            X_train = self.data[train_index,
+                                DATA_START_COL:REGR_COL]
+            y_train = self.data[train_index, 
+                                REGR_COL].reshape(-1, 1)
+            X_test = self.data[test_index,
+                                DATA_START_COL:REGR_COL]
+            y_test = self.data[test_index,
+                                REGR_COL].reshape(-1, 1)
+
+            regr = self.get_model(regr_name)
+            regr.fit(X_train, y_train)
+            self.models.append(regr)
+
+            full_train_mse = mean_squared_error(y_train,
+                                                    regr.predict(X_train))
+            vald_mse = mean_squared_error(y_test, regr.predict(X_test))
+
+                
+            out_matrix[0,0] = 0
+            out_matrix[0,1] = 0
+            out_matrix[0,2] = full_train_mse
+            out_matrix[0,3] = vald_mse
+            out_matrix[0,4] = 0
+
+        return out_matrix

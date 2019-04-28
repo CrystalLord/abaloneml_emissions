@@ -73,7 +73,7 @@ def main():
         validator = learning.CrossValidator(weekenddata,
                                             normalize=normalize)
 
-        out_matrix = validator.k_folds(
+        out_matrix = validator.super_simple_k_folds(
             regr_name,
             alpha_range=[1.0]
         )
