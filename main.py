@@ -65,21 +65,38 @@ def main():
         # Extract the dataset. To be replaced with CV by Pryianka.
         # -----------------------------------------------------------------
         regr_name = args.regressor
-        normalize = True
+        normalize = False
+        pca = None
 
         data = np.genfromtxt(args.datafile)
-        weekenddata = data[:, [0, -8, -7, -6, -5, -4, -3, -2, -1]]
+        validator = learning.CrossValidator(data,
+                                            normalize=normalize,
+                                            pca=pca)
 
-        validator = learning.CrossValidator(weekenddata,
-                                            normalize=normalize)
-
-        out_matrix = validator.super_simple_k_folds(
+        out_matrix = validator.k_folds(
             regr_name,
-            alpha_range=[1.0]
+            alpha_range=[1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8]#[0.0001, 0.05, 0.06, 0.07, 0.09, 0.1]
         )
 
-        #print(validator.models[-1].coef_)
-        #print(validator.models[-1].intercept_)
+        #test_true = validator.test_true
+        #test_pred = validator.test_pred
+
+        #validator2 = learning.CrossValidator(data,
+        #                                    normalize=normalize)
+        #baseline = validator2.super_simple_cv('mean')
+        #base_pred = validator2.test_pred
+
+        try:
+            inds = np.flip(np.argsort(abs(validator.models[-1].coef_),))
+            for i, ind in enumerate(inds[0,0:20]):
+                val = validator.models[-1].coef_[:,ind]
+                name = learning.get_col_name(args.namefile, ind)
+                print(f"{i+1}: {val} -- {name} ({ind})")
+
+            print(validator.models[-1].intercept_)
+        except:
+            pass
+
         header = "train_mse,validation_mse,full_train_mse,test_mse,alphas"
         np.savetxt(f"{regr_name}_cv_output_mat.csv",
                    out_matrix,
@@ -96,22 +113,15 @@ def main():
         print(f"Test Mean MSE {test_mse.mean()}")
 
         # Set up title.
-        title = f"'{regr_name}' Regression with Time Nested CV"
+        title = f"'{regr_name}' Regression Test Predictions v.s. True"
         if normalize:
             title += " (Normalized)"
 
-        plt.plot(full_train_mse*100, label='Full Train MSE')
-        plt.plot(test_mse*100, label='Test MSE')
-        plt.title(title)
-        plt.ylabel("% Error & Alpha")
-        plt.xlabel('Week (Validation Fold)')
-        plt.legend()
-        plt.savefig(f"{regr_name}_cv_plot.png", dpi=196)
-        plt.show()
-
-        # Show alphas.
-        plt.plot(alphas, '--', label='Alpha')
-        plt.show()
+        #plotting.plot_pred_v_reality(test_true, test_pred,
+        #                             base=base_pred, title=title,
+        #                             regr_name=regr_name)
+        plotting.plot_nestedcv(full_train_mse, test_mse,
+                               alphas, title=title, regr_name=regr_name)
 
     if args.subparser_name == 'meta':
         # Scan through metaparameters
@@ -209,26 +219,12 @@ def parseargs():
     regr_parser= subparsers.add_parser(
         'regr', help='Train regressor and view predictions')
     regr_parser.add_argument('datafile', type=str)
+    regr_parser.add_argument('namefile', type=str)
     regr_parser.add_argument('regressor', type=str,
                              default='linear',
                              help="Can be 'linear', 'ridge', 'lasso', or 'mean'")
     return parser.parse_args()
 
-
-def mean_of_week(data):
-    swend = 0
-    swday = 0
-    cwend = 0
-    cwday = 0
-    for i in range(data.shape[0]):
-        if data[i, -2] == 1.0 or data[i, -3] == 1.0:
-            # Is weekend.
-            swend += data[i,-1]
-            cwend += 1
-        else:
-            swday += data[i,-1]
-            cwday += 1
-    return swday/cwday, swend/cwend
 
 if __name__ == "__main__":
     main()
