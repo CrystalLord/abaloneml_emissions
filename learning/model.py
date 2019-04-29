@@ -8,7 +8,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.dummy import DummyRegressor
 import sklearn.linear_model as linear_model
 from sklearn import preprocessing
-from sklearn.model_selection import ShuffleSplit
+from sklearn.model_selection import ShuffleSplit, RepeatedKFold
+from sklearn.decomposition import PCA
 
 import learning
 
@@ -24,7 +25,7 @@ REGR_COL = -1
 
 class CrossValidator:
 
-    def __init__(self, training_data, normalize):
+    def __init__(self, training_data, normalize=False, pca=None):
         """Create a Model Object.
 
         Args:
@@ -36,6 +37,13 @@ class CrossValidator:
             cut_out = self.data[:,DATA_START_COL:REGR_COL]
             cut_normed = preprocessing.normalize(cut_out)
             self.data[:,DATA_START_COL:REGR_COL] = cut_normed
+        if pca is not None:
+            decomp = PCA(n_components=pca)
+            cut_out = self.data[:,DATA_START_COL:REGR_COL]
+            cut_pca = decomp.fit_transform(cut_out)
+            temp = np.concatenate((self.data[:,0].reshape(-1, 1), cut_pca,
+                                   self.data[:,-1].reshape(-1, 1)), axis=1)
+            self.data = temp
         self.models = []
 
     def k_folds(self, regr_name, fold_size=14, alpha_range=None):
@@ -344,7 +352,7 @@ class CrossValidator:
         elif regr_name == "ridge":
             return linear_model.Ridge(max_iter=5000, **kwargs)
         elif regr_name == "linear":
-            return linear_model.LinearRegression(**kwargs)
+            return linear_model.LinearRegression()
         elif regr_name == "mean":
             return DummyRegressor('mean')
         else:
@@ -375,7 +383,7 @@ class CrossValidator:
 
     def final_test(self, regr_name, train_data, test_data,
                    model_params={}):
-
+        """Conducts a final test on held out data"""
         X_train = train_data[:,
                             DATA_START_COL:REGR_COL]
         y_train = train_data[:,
@@ -390,38 +398,104 @@ class CrossValidator:
         regr.fit(X_train, y_train)
         train_mse = mean_squared_error(y_train, regr.predict(X_train))
         test_mse = mean_squared_error(y_test, regr.predict(X_test))
+
+
+        self.test_true = y_test
+        self.test_pred = regr.predict(X_test)
+
         return train_mse, test_mse
 
-    def super_simple_k_folds(self, regr_name, alpha_range=None,
-                       fold_size=14, num_test=93):
+    def super_simple_cv(self, regr_name, alpha_range=None,
+                       fold_num=6):
         """Simple CV.
         """
+
+        splitter = ShuffleSplit(n_splits=1, test_size=.10,
+                                random_state=2)
+        # This for loop only gets run once.
+        train_index, test_index = list(splitter.split(self.data))[0]
+        X_train = self.data[train_index,
+                            DATA_START_COL:REGR_COL]
+        y_train = self.data[train_index,
+                            REGR_COL].reshape(-1, 1)
+        X_test = self.data[test_index,
+                            DATA_START_COL:REGR_COL]
+        y_test = self.data[test_index,
+                            REGR_COL].reshape(-1, 1)
+
+        if alpha_range is not None:
+            best_alpha, vald_mse = self.repeat_k_folds(X_train,
+                                                       y_train,
+                                                       regr_name,
+                                                       alpha_range,
+                                                       fold_num)
+        else:
+            best_alpha = 0
+            vald_mse = 0
+        # Generate a new model with the best alpha we found.
+        regr = self.get_model(regr_name, alpha=best_alpha)
+        regr.fit(X_train, y_train)
+        self.models.append(regr)
+
+        full_train_mse = mean_squared_error(y_train,
+                                            regr.predict(X_train))
+        test_mse = mean_squared_error(y_test, regr.predict(X_test))
+
+        self.test_true = y_test
+        self.test_pred = regr.predict(X_test)
+
+        # Make an output matrix for easy use.
         out_matrix = np.empty((1, 5))
-
-        firstSplit = ShuffleSplit(n_splits=1, test_size=.05, random_state=0)
-        for train_index, test_index in firstSplit.split(self.data):
-            X_train = self.data[train_index,
-                                DATA_START_COL:REGR_COL]
-            y_train = self.data[train_index, 
-                                REGR_COL].reshape(-1, 1)
-            X_test = self.data[test_index,
-                                DATA_START_COL:REGR_COL]
-            y_test = self.data[test_index,
-                                REGR_COL].reshape(-1, 1)
-
-            regr = self.get_model(regr_name)
-            regr.fit(X_train, y_train)
-            self.models.append(regr)
-
-            full_train_mse = mean_squared_error(y_train,
-                                                    regr.predict(X_train))
-            vald_mse = mean_squared_error(y_test, regr.predict(X_test))
-
-                
-            out_matrix[0,0] = 0
-            out_matrix[0,1] = 0
-            out_matrix[0,2] = full_train_mse
-            out_matrix[0,3] = vald_mse
-            out_matrix[0,4] = 0
+        out_matrix[0,0] = 0
+        out_matrix[0,1] = vald_mse
+        out_matrix[0,2] = full_train_mse
+        out_matrix[0,3] = test_mse
+        out_matrix[0,4] = best_alpha
 
         return out_matrix
+
+    def repeat_k_folds(self,
+                       X,
+                       y,
+                       regr_name,
+                       alpha_range,
+                       num_splits,
+                       num_times=5):
+        """Conducts repeated k-Folds on the data, for the provided number of
+            times
+        """
+        best_alpha = None
+        best_err = float("inf")
+        for alpha in alpha_range:
+            # Get the first alpha around.
+            if best_alpha is None:
+                best_alpha = alpha
+
+            # Keep a running sum of errors over repeated k-folds
+            err_sum = 0
+            count = 0
+            # Split for K-Folds.
+            folder = RepeatedKFold(n_splits=num_splits,
+                                  n_repeats=num_times,
+                                  random_state=1234)
+            regr = self.get_model(regr_name, alpha=alpha)
+            for train_ind, validate_ind in folder.split(X, y):
+                # Slice training data
+                X_train = X[train_ind, :]
+                y_train = y[train_ind, :]
+                X_vald = X[validate_ind, :]
+                y_vald = y[validate_ind, :]
+
+                # Update error and alpha
+                regr.fit(X_train, y_train)
+                err_sum += mean_squared_error(y_vald, regr.predict(X_vald))
+                count += 1
+            avg_err = err_sum/count
+            print(f"alph: {alpha} err: {avg_err}")
+            if avg_err < best_err:
+                best_err = avg_err
+                best_alpha = alpha
+        print("K-folds found...")
+        print(f"    best_alpha = {best_alpha}")
+        print(f"    best_err = {best_err}")
+        return best_alpha, best_err
