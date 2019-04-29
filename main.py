@@ -70,7 +70,8 @@ def main():
 
 
         data = np.genfromtxt(args.datafile)
-
+        print(f"Mean: {data[:,-1].mean()}")
+        print(f"STD: {data[:,-1].std()}")
         # weekenddata = data[:, [0, -8, -7, -6, -5, -4, -3, -2, -1]]
         validator = learning.CrossValidator(data,
                                             normalize=normalize,
