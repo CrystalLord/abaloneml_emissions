@@ -65,17 +65,20 @@ def main():
         # Extract the dataset. To be replaced with CV by Pryianka.
         # -----------------------------------------------------------------
         regr_name = args.regressor
-        normalize = True
+        normalize = False
 
         data = np.genfromtxt(args.datafile)
-        weekenddata = data[:, [0, -8, -7, -6, -5, -4, -3, -2, -1]]
 
-        validator = learning.CrossValidator(weekenddata,
+        # weekenddata = data[:, [0, -8, -7, -6, -5, -4, -3, -2, -1]]
+
+        # validator = learning.CrossValidator(weekenddata,
+        #                                     normalize=normalize)
+        validator = learning.CrossValidator(data,
                                             normalize=normalize)
 
-        out_matrix = validator.super_simple_k_folds(
+        out_matrix = validator.simple_k_folds(
             regr_name,
-            alpha_range=[1.0]
+            alpha_range=[1e8, 1e6, 1e7, 1e5, 1e4, 1e3]
         )
 
         #print(validator.models[-1].coef_)
@@ -96,14 +99,14 @@ def main():
         print(f"Test Mean MSE {test_mse.mean()}")
 
         # Set up title.
-        title = f"'{regr_name}' Regression with Time Nested CV"
+        title = f"'{regr_name}' Regression with Time Based CV"
         if normalize:
             title += " (Normalized)"
 
         plt.plot(full_train_mse*100, label='Full Train MSE')
         plt.plot(test_mse*100, label='Test MSE')
         plt.title(title)
-        plt.ylabel("% Error & Alpha")
+        plt.ylabel("Error x 100")
         plt.xlabel('Week (Validation Fold)')
         plt.legend()
         plt.savefig(f"{regr_name}_cv_plot.png", dpi=196)
